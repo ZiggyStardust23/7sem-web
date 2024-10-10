@@ -96,8 +96,6 @@ Web-приложение для интернет магазина телефон
 ![bpmn3](img/scroll.svg)
 ![bpmn4](img/bpmn_3.svg)
 
-# Лабораторная 2
-
 ## Тип приложения
 Web SPA
 
@@ -120,8 +118,8 @@ Web SPA
 ## Диаграмма классов
 ![](img/uml.png)  
 
-Сценарий 1
-![](img/scenario1.png)
+## Черновые эскизы страниц
 
-Сценарий 2
-![](img/scenario1.png)
+![page1](img/page1.png)
+![page2](img/page2.png)
+![page3](img/page3.png)
