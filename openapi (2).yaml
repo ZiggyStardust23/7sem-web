@@ -1,0 +1,707 @@
+openapi: 3.0.0
+info:
+  title: My API
+  version: v1
+paths:
+  /users/login:
+    post:
+      tags: 
+        - users
+      summary: Авторизация пользователя в системе.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: Email пользователя
+                password:
+                  type: string
+                  description: Пароль пользователя
+      responses:
+        '200':
+          description: Авторизация пользователя выполнена успешно
+        '401':
+          description: Неверный email или пароль
+  /users/reg:
+    post:
+      tags: 
+        - users
+      summary: Регистрация нового пользователя в системе.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: Email пользователя
+                password:
+                  type: string
+                  description: Пароль пользователя
+                name:
+                  type: string
+                  description: Имя пользователя
+                phonenum:
+                  type: string
+                  description: Номер телефона
+      responses:
+        '201':
+          description: Пользователь успешно зарегистрирован
+        '400':
+          description: Некорректные данные регистрации
+  /users:
+    post:
+      tags: 
+        - users
+      summary: Создание нового пользователя в системе.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: Email пользователя
+                password:
+                  type: string
+                  description: Пароль пользователя
+                name:
+                  type: string
+                  description: Имя пользователя
+                phonenum:
+                  type: string
+                  description: Номер телефона
+                role:
+                  type: string
+                  description: Роль пользователя
+      responses:
+        '201':
+          description: Новый пользователь создан
+        '400':
+          description: Некорректные данные для создания пользователя
+  /users/{id}:
+    patch:
+      tags: 
+        - users
+      summary: Обновление данных о пользователе.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID пользователя
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  description: Email пользователя
+                password:
+                  type: string
+                  description: Пароль пользователя
+                name:
+                  type: string
+                  description: Имя пользователя
+      responses:
+        '200':
+          description: Данные пользователя обновлены
+        '400':
+          description: Некорректные данные для обновления пользователя
+  /phones/{id}:
+    get:
+      tags: 
+        - phones
+      summary: Получение данных о телефоне по его ID.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID телефона
+      responses:
+        '200':
+          description: Данные о телефоне получены
+        '404':
+          description: Телефон не найден
+    patch:
+      tags: 
+        - phones
+      summary: Обновление данных о существующем телефоне.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID телефона
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  description: id телефона
+                name:
+                  type: string
+                  description: Название телефона
+                osname:
+                  type: string
+                  description: Название ОС
+                prodname:
+                  type: string
+                  description: Название производителя
+                price:
+                  type: number
+                  description: Цена телефона
+                mem:
+                  type: number
+                  description: Размер памяти
+                ram:
+                  type: number
+                  description: Размер озу
+                camres:
+                  type: number
+                  description: Разрешение камеры
+      responses:
+        '200':
+          description: Данные телефона обновлены
+        '400':
+          description: Некорректные данные для обновления телефона
+    delete:
+      tags: 
+        - phones
+      summary: Удаление телефона.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID телефона
+      responses:
+        '204':
+          description: Телефон успешно удален
+        '404':
+          description: Телефон не найден
+  /phones:
+    post:
+      tags: 
+        - phones
+      summary: Создание нового телефона в системе.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Название телефона
+                osname:
+                  type: string
+                  description: Название ОС
+                prodname:
+                  type: string
+                  description: Название производителя
+                price:
+                  type: number
+                  description: Цена телефона
+                mem:
+                  type: number
+                  description: Размер памяти
+                ram:
+                  type: number
+                  description: Размер озу
+                camres:
+                  type: number
+                  description: Разрешение камеры
+      responses:
+        '201':
+          description: Новый телефон создан
+        '400':
+          description: Некорректные данные для создания телефона
+  /orders:
+    post:
+      tags: 
+        - orders
+      summary: Создание нового заказа.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderposition:
+                  type: object
+                  description: пара телефон - количество
+                  properties:
+                    phoneid:
+                      type: string
+                      description: id телефона
+                    amount:
+                      type: number
+                      description: количество телефонов в позиции
+      responses:
+        '201':
+          description: Новый заказ создан
+        '400':
+          description: Некорректные данные для создания заказа
+    delete:
+      tags: 
+        - orders
+      summary: Удаление заказа.
+      responses:
+        '204':
+          description: Заказ успешно удален
+        '404':
+          description: Заказ не найден
+  /orders/{id}:
+    get:
+      tags: 
+        - orders
+      summary: Получение данных о заказе по его ID.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID заказа
+      responses:
+        '200':
+          description: Данные о заказе получены
+        '404':
+          description: Заказ не найден
+    patch:
+      tags: 
+        - orders
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID заказа
+      summary: Обновление статуса заказа.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  description: Новый статус заказа
+      responses:
+        '200':
+          description: Данные о заказе получены
+        '404':
+          description: Заказ не найден
+  /orders/byuserid/{id}:
+    get:
+      tags: 
+        - orders
+      summary: Получение всех заказов пользователя по его ID.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID пользователя
+      responses:
+        '200':
+          description: Данные о заказе получены
+        '404':
+          description: Заказ не найден
+  /payments/{id}:
+    get:
+      tags: 
+        - payments
+      summary: Получение данных о платеже по его ID.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID платежа
+      responses:
+        '200':
+          description: Данные о платеже получены
+        '404':
+          description: Платеж не найден
+    delete:
+      tags: 
+        - payments
+      summary: Удаление платежа.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID платежа
+      responses:
+        '204':
+          description: Платеж успешно удален
+        '404':
+          description: Платеж не найден
+    patch:
+      tags: 
+        - payments
+      summary: Обновление данных о платеже.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID платежа
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                address:
+                  type: string
+                  description: адрес доставки
+                status:
+                  type: string
+                  description: статус оплаты
+      responses:
+        '200':
+          description: Данные о платеже обновлены
+        '400':
+          description: Некорректные данные для обновления платежа
+  /payments:
+    post:
+      tags: 
+        - payments
+      summary: Создание нового платежа.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderid:
+                  type: string
+                  description: id заказа
+                address:
+                  type: string
+                  description: адрес доставки
+      responses:
+        '201':
+          description: Новый платеж создан
+        '400':
+          description: Некорректные данные для создания платежа
+  /payments/byorderid/{id}:
+    get:
+      tags: 
+        - payments
+      summary: Получение данных о платежах по ID заказа.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID заказа
+      responses:
+        '200':
+          description: Список платежей получен
+        '404':
+          description: Заказ не найден
+  /baskets/{id}:
+    post:
+      tags: 
+        - baskets
+      summary: Создание новой корзины для пользователя.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID пользователя
+      responses:
+        '201':
+          description: Корзина создана
+        '400':
+          description: Некорректные данные для создания корзины
+    get:
+      tags: 
+        - baskets
+      summary: Получение данных о корзине по ID пользователя.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID пользователя
+      responses:
+        '200':
+          description: Данные о корзине получены
+        '404':
+          description: Корзина не найдена
+  /baskets/clear/{id}:
+    post:
+      tags: 
+        - baskets
+      summary: Очистка содержимого корзины.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID пользователя
+      responses:
+        '204':
+          description: Корзина очищена
+        '404':
+          description: Корзина не найдена
+  /baskets/price/{id}:
+    get:
+      tags: 
+        - baskets
+      summary: Получение общей суммы товаров в корзине.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID пользователя
+      responses:
+        '200':
+          description: Общая сумма товаров получена
+        '404':
+          description: Корзина не найдена
+  /baskets/add/{id}:
+    patch:
+      tags: 
+        - baskets
+      summary: Добавление товаров в корзину.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID пользователя
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  description: id корзины
+                phoneid:
+                  type: string
+                  description: id телефона
+      responses:
+        '200':
+          description: Товары добавлены в корзину
+        '400':
+          description: Некорректные данные для добавления товара
+  /baskets/remove/{id}:
+    patch:
+      tags: 
+        - baskets
+      summary: Удаление товаров из корзины.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID пользователя
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  description: id корзины
+                phoneid:
+                  type: string
+                  description: id телефона
+      responses:
+        '200':
+          description: Товары удалены из корзины
+        '400':
+          description: Некорректные данные для удаления товара
+  /comments:
+    post:
+      tags: 
+        - comments
+      summary: Создание нового комментария.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userid:
+                  type: string
+                  description: id пользователя
+                text:
+                  type: string
+                  description: текст комментария
+      responses:
+        '201':
+          description: Комментарий создан
+        '400':
+          description: Некорректные данные для создания комментария
+  /comments/{id}:
+    delete:
+      tags: 
+        - comments
+      summary: Удаление комментария.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID комментария
+      responses:
+        '204':
+          description: Комментарий успешно удален
+        '404':
+          description: Комментарий не найден
+  /comments/byphoneid/{id}:
+    get:
+      tags: 
+        - comments
+      summary: Получение комментариев по ID товара.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID товара
+      responses:
+        '200':
+          description: Список комментариев получен
+        '404':
+          description: Товар не найден
+  /comments/inc/{id}:
+    post:
+      tags: 
+        - comments
+      summary: Инкремент рейтинга комментария.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID комментария
+      responses:
+        '200':
+          description: Рейтинг успешно обновлен
+        '404':
+          description: Комментарий не найден
+  /comments/dec/{id}:
+    post:
+      tags: 
+        - comments
+      summary: Декремент рейтинга комментария.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID комментария
+      responses:
+        '200':
+          description: Рейтинг успешно обновлен
+        '404':
+          description: Комментарий не найден
+  /wishes:
+    post:
+      tags: 
+        - wishes
+      summary: Создание нового желаемого товара.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userid:
+                  type: string
+                  description: id пользователя
+                phoneid:
+                  type: string
+                  description: id телефона
+      responses:
+        '201':
+          description: Желаемый товар создан
+        '400':
+          description: Некорректные данные для создания желаемого товара
+  /wishes/{id}:
+    delete:
+      tags: 
+        - wishes
+      summary: Удаление желаемого товара.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID желаемого товара
+      responses:
+        '204':
+          description: Желаемый товар успешно удален
+        '404':
+          description: Желаемый товар не найден
+  /wishes/byuserid/{id}:
+    get:
+      tags: 
+        - wishes
+      summary: Получение списка желаемых товаров по ID пользователя.
+      parameters:
+        - in: path
+          name: id
+          schema:
+            type: integer
+          required: true
+          description: ID пользователя
+      responses:
+        '200':
+          description: Список желаемых товаров получен
+        '404':
+          description: Товары не найдены
+tags:
+  - name: phones
+  - name: users
+  - name: orders
+  - name: payments
+  - name: comments
+  - name: wishes
+  - name: baskets
