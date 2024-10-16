@@ -23,6 +23,26 @@ paths:
       responses:
         '200':
           description: Авторизация пользователя выполнена успешно
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: 
+                    type: string
+                    description: Токен авторизации
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                        format: string
+                      name:
+                        type: string
+                      email:
+                        type: string
+                      phonenum:
+                        type: string
         '401':
           description: Неверный email или пароль
   /users/reg:
@@ -51,6 +71,14 @@ paths:
       responses:
         '201':
           description: Пользователь успешно зарегистрирован
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение об успешной регистрации
         '400':
           description: Некорректные данные регистрации
   /users:
@@ -82,6 +110,17 @@ paths:
       responses:
         '201':
           description: Новый пользователь создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: 
+                    type: integer
+                    format: int64
+                  message:
+                    type: string
+                    description: Сообщение об успешном создании
         '400':
           description: Некорректные данные для создания пользователя
   /users/{id}:
@@ -114,6 +153,14 @@ paths:
       responses:
         '200':
           description: Данные пользователя обновлены
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение об успешном обновлении
         '400':
           description: Некорректные данные для обновления пользователя
   /phones/{id}:
@@ -131,6 +178,32 @@ paths:
       responses:
         '200':
           description: Данные о телефоне получены
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: 
+                    type: integer
+                    format: int64
+                  name:
+                    type: string
+                  osname:
+                    type: string
+                  prodname:
+                    type: string
+                  price:
+                    type: number
+                    format: float
+                  mem:
+                    type: number
+                    format: float
+                  ram:
+                    type: number
+                    format: float
+                  camres:
+                    type: number
+                    format: float
         '404':
           description: Телефон не найден
     patch:
@@ -177,6 +250,14 @@ paths:
       responses:
         '200':
           description: Данные телефона обновлены
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: 
+                    type: string
+                    description: Сообщение об успешном обновлении
         '400':
           description: Некорректные данные для обновления телефона
     delete:
@@ -230,8 +311,142 @@ paths:
       responses:
         '201':
           description: Новый телефон создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: 
+                    type: integer
+                    format: int64
+                  message:
+                    type: string
+                    description: Сообщение об успешном создании
         '400':
           description: Некорректные данные для создания телефона
+  /phones/paginate:
+    get:
+      tags: 
+        - phones
+      summary: Получение списка телефонов с поддержкой пагинации и фильтров.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Номер страницы для пагинации (по умолчанию 1).
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          description: Количество объектов на странице (по умолчанию 10).
+          schema:
+            type: integer
+            default: 10
+        - name: osname
+          in: query
+          required: false
+          description: Фильтр по названию ОС.
+          schema:
+            type: string
+        - name: prodname
+          in: query
+          required: false
+          description: Фильтр по названию производителя.
+          schema:
+            type: string
+        - name: price_min
+          in: query
+          required: false
+          description: Минимальная цена телефона.
+          schema:
+            type: number
+        - name: price_max
+          in: query
+          required: false
+          description: Максимальная цена телефона.
+          schema:
+            type: number
+        - name: mem_min
+          in: query
+          required: false
+          description: Фильтр по мин. размеру памяти.
+          schema:
+            type: number
+        - name: mem_max
+          in: query
+          required: false
+          description: Фильтр по макс. размеру памяти.
+          schema:
+            type: number
+        - name: ram_min
+          in: query
+          required: false
+          description: Фильтр по мин. размеру оперативной памяти.
+          schema:
+            type: number
+        - name: ram_max
+          in: query
+          required: false
+          description: Фильтр по макс. размеру оперативной памяти.
+          schema:
+            type: number
+        - name: camres_min
+          in: query
+          required: false
+          description: Фильтр по мин. разрешению камеры.
+          schema:
+            type: number
+        - name: camres_max
+          in: query
+          required: false
+          description: Фильтр по макс. разрешению камеры.
+          schema:
+            type: number
+      responses:
+        '200':
+          description: Успешный ответ с списком телефонов.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_count:
+                    type: integer
+                    description: Общее количество найденных телефонов.
+                  page:
+                    type: integer
+                    description: Номер текущей страницы.
+                  limit:
+                    type: integer
+                    description: Количество объектов на странице.
+                  phones:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: Название телефона.
+                        osname:
+                          type: string
+                          description: Название ОС.
+                        prodname:
+                          type: string
+                          description: Название производителя.
+                        price:
+                          type: number
+                          description: Цена телефона.
+                        mem:
+                          type: number
+                          description: Размер памяти.
+                        ram:
+                          type: number
+                          description: Размер озу.
+                        camres:
+                          type: number
+                          description: Разрешение камеры.
   /orders:
     post:
       tags: 
@@ -244,18 +459,34 @@ paths:
               type: object
               properties:
                 orderposition:
-                  type: object
-                  description: пара телефон - количество
-                  properties:
-                    phoneid:
-                      type: string
-                      description: id телефона
-                    amount:
-                      type: number
-                      description: количество телефонов в позиции
+                  type: array
+                  description: Список позиций заказа
+                  items:
+                    type: object
+                    properties:
+                      phoneid:
+                        type: integer
+                        format: int64
+                        description: ID телефона
+                      amount:
+                        type: integer
+                        format: int32
+                        description: Количество телефонов в позиции
       responses:
         '201':
           description: Новый заказ создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    format: int64
+                    description: ID созданного заказа
+                  message:
+                    type: string
+                    description: Сообщение об успешном создании заказа
         '400':
           description: Некорректные данные для создания заказа
     delete:
@@ -282,6 +513,36 @@ paths:
       responses:
         '200':
           description: Данные о заказе получены
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    format: int64
+                    description: ID заказа
+                  orderposition:
+                    type: array
+                    description: Список позиций заказа
+                    items:
+                      type: object
+                      properties:
+                        phoneid:
+                          type: integer
+                          format: int64
+                          description: ID телефона
+                        amount:
+                          type: integer
+                          format: int32
+                          description: Количество телефонов в позиции
+                  status:
+                    type: integer
+                    description: Статус заказа
+                  userid:
+                    type: integer
+                    format: int64
+                    description: ID пользователя
         '404':
           description: Заказ не найден
     patch:
@@ -302,11 +563,21 @@ paths:
               type: object
               properties:
                 status:
-                  type: string
+                  type: integer
                   description: Новый статус заказа
       responses:
         '200':
-          description: Данные о заказе получены
+          description: Данные о заказе обновлены
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение об успешном обновлении
+        '400':
+          description: Некорректное значение статуса заказа
         '404':
           description: Заказ не найден
   /orders/byuserid/{id}:
@@ -324,6 +595,38 @@ paths:
       responses:
         '200':
           description: Данные о заказе получены
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      format: int64
+                      description: ID заказа
+                    orderposition:
+                      type: array
+                      description: Список позиций заказа
+                      items:
+                        type: object
+                        properties:
+                          phoneid:
+                            type: integer
+                            format: int64
+                            description: ID телефона
+                          amount:
+                            type: integer
+                            format: int32
+                            description: Количество телефонов в позиции
+                    status:
+                      type: integer
+                      description: Статус заказа
+                    userid:
+                      type: integer
+                      format: int64
+                      description: ID пользователя
         '404':
           description: Заказ не найден
   /payments/{id}:
@@ -341,6 +644,19 @@ paths:
       responses:
         '200':
           description: Данные о платеже получены
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  orderid:
+                    type: string
+                  address:
+                    type: string
+                  status:
+                    type: boolean
         '404':
           description: Платеж не найден
     delete:
@@ -385,8 +701,18 @@ paths:
       responses:
         '200':
           description: Данные о платеже обновлены
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Сообщение об успешном обновлении
         '400':
           description: Некорректные данные для обновления платежа
+        '404':
+          description: Платеж не найден
   /payments:
     post:
       tags: 
@@ -407,13 +733,23 @@ paths:
       responses:
         '201':
           description: Новый платеж создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  message:
+                    type: string
+                    description: Сообщение об успешном cоздании
         '400':
           description: Некорректные данные для создания платежа
   /payments/byorderid/{id}:
     get:
       tags: 
         - payments
-      summary: Получение данных о платежах по ID заказа.
+      summary: Получение данных о платеже по ID заказа.
       parameters:
         - in: path
           name: id
@@ -424,6 +760,7 @@ paths:
       responses:
         '200':
           description: Список платежей получен
+          
         '404':
           description: Заказ не найден
   /baskets/{id}:
@@ -457,6 +794,28 @@ paths:
       responses:
         '200':
           description: Данные о корзине получены
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: ID корзины
+                    basketposition:
+                      type: array
+                      description: Список позиций корзины
+                      items:
+                        type: object
+                        properties:
+                          phoneid:
+                            type: string
+                            description: ID телефона
+                          amount:
+                            type: string
+                            description: Количество телефонов в позиции
         '404':
           description: Корзина не найдена
   /baskets/clear/{id}:
@@ -491,6 +850,10 @@ paths:
       responses:
         '200':
           description: Общая сумма товаров получена
+          content:
+            application/json:
+              schema:
+                type: number
         '404':
           description: Корзина не найдена
   /baskets/add/{id}:
@@ -520,6 +883,28 @@ paths:
       responses:
         '200':
           description: Товары добавлены в корзину
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: ID корзины
+                    basketposition:
+                      type: array
+                      description: Список позиций корзины
+                      items:
+                        type: object
+                        properties:
+                          phoneid:
+                            type: string
+                            description: ID телефона
+                          amount:
+                            type: string
+                            description: Количество телефонов в позиции
         '400':
           description: Некорректные данные для добавления товара
   /baskets/remove/{id}:
@@ -549,6 +934,28 @@ paths:
       responses:
         '200':
           description: Товары удалены из корзины
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: ID корзины
+                    basketposition:
+                      type: array
+                      description: Список позиций корзины
+                      items:
+                        type: object
+                        properties:
+                          phoneid:
+                            type: string
+                            description: ID телефона
+                          amount:
+                            type: string
+                            description: Количество телефонов в позиции
         '400':
           description: Некорректные данные для удаления товара
   /comments:
@@ -605,6 +1012,33 @@ paths:
       responses:
         '200':
           description: Список комментариев получен
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    comments:
+                      type: array
+                      description: Список комментариев
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            description: id
+                          userid:
+                            type: string
+                            description: id
+                          username:
+                            type: string
+                          text:
+                            type: string
+                          rate: 
+                            type: integer
+                          date:
+                            type: string
         '404':
           description: Товар не найден
   /comments/inc/{id}:
@@ -695,6 +1129,25 @@ paths:
       responses:
         '200':
           description: Список желаемых товаров получен
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    comments:
+                      type: array
+                      description: Список желаемых товаров
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                            description: id
+                          phoneid:
+                            type: string
+                            description: id
         '404':
           description: Товары не найдены
 tags:
