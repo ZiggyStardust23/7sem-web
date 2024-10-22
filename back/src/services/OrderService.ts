@@ -7,7 +7,7 @@ export interface IOrderService {
     create(order: orderCreateDTO): Promise<returnOrderDTO>;
     findById(orderId: string): Promise<returnOrderDTO | Error>;
     findByUserId(userid: string): Promise<Order[]>;
-    updateOrderStatus(order: orderUpdateStatus): Promise<returnOrderDTO | Error>;
+    updateOrderStatus(order: orderUpdateStatus): Promise<Order>;
     addPositionsToOrder(order: orderUpdatePositions): Promise<returnOrderDTO | Error>;
     removePositionsFromOrder(order: orderUpdatePositions): Promise<returnOrderDTO | Error>;
 }
@@ -50,19 +50,15 @@ export class OrderService implements IOrderService {
         return Promise.resolve(ordersGetted);
     }
 
-    async updateOrderStatus(order: orderUpdateStatus): Promise<returnOrderDTO | Error> {
+    async updateOrderStatus(order: orderUpdateStatus): Promise<Order> {
         const checkOrder = await this.orderRepository.getById(order.id);
         if (checkOrder == null){
-            return Promise.resolve(new Error("not found in db by id"));
+            throw new NotFoundError("not found in db by id");
         }
-        
         checkOrder.status = order.status;
-        const orderUpdated = await this.orderRepository.update(checkOrder);
-        if (orderUpdated == null){
-            return Promise.reject(new Error("order found, but error occured"));
-        }
+        const orderUpdated = await this.orderRepository.updateStatus(checkOrder);
 
-        return orderUpdated.toDTO();
+        return Promise.resolve(orderUpdated);
     }
 
     async addPositionsToOrder(order: orderUpdatePositions): Promise<returnOrderDTO | Error> {

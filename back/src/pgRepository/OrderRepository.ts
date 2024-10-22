@@ -9,6 +9,7 @@ export interface IOrderRepository {
     getById(orderId: string): Promise<Order | null>;
     getByUserId(userid: string): Promise<Order[]>;
     update(order: Order): Promise<Order | null>;
+    updateStatus(order: Order): Promise<Order>
 }
 
 export class PostgresOrderRepository implements IOrderRepository {
@@ -217,6 +218,18 @@ export class PostgresOrderRepository implements IOrderRepository {
         } finally {
             client.release();
         }
+    }
+
+    async updateStatus(order: Order): Promise<Order> {
+        const client = await this.pool.connect();
+
+        await client.query(
+            `UPDATE orders SET userid status = $1 WHERE id = $2`,
+            [order.status, order.id]
+        );
+
+        return order;
+        client.release();
     }
     
     

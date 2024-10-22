@@ -2,7 +2,7 @@ import express, { Express, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import {UserService} from '../services/UserService';
 import { PostgresUserRepository } from '../pgRepository/UserRepository';
-import {PhoneService} from '../services/PhoneService';
+import {Phone, PhoneService} from '../services/PhoneService';
 import { PostgresPhoneRepository } from '../pgRepository/PhoneRepository';
 import {PaymentService} from '../services/PaymentService';
 import { PostgresPaymentRepository } from '../pgRepository/PaymentRepository';
@@ -21,6 +21,7 @@ import { userRole } from "../dto/UserDTO";
 import { BadRequestError, InternalServerError, NotFoundError, UnauthorizedError } from "../errors/requestErrors";
 import { returnOrderDTO } from "../dto/OrderDTO";
 import { returnDTO } from "../dto/WishDTO";
+import { returnCommentDTO } from "../dto/CommentDTO";
 
 const app: Express = express();
 const PORT = 3000; // Выберите порт, который вы хотите прослушивать
@@ -80,6 +81,8 @@ app.get('/api/users/:id', async (req: Request, res: Response) => {
 });
 */
 
+
+//USERS
 app.get('/api/users/:id/basket', async (req: Request, res: Response) => {
     const userId = req.params.id;
 
@@ -90,7 +93,8 @@ app.get('/api/users/:id/basket', async (req: Request, res: Response) => {
             userid: basket.userId,
             positions: basket.positions
         })
-    }catch (e: any) {
+    }
+    catch (e: any) {
         if (e instanceof NotFoundError){
             res.status(e.statusCode).json({ error: e.message });
         }
@@ -112,7 +116,8 @@ app.get('/api/users/:id/orders', async (req: Request, res: Response) => {
         res.status(200).json({
             orders: ordersToReturn
         })
-    }catch (e: any) {
+    }
+    catch (e: any) {
         if (e instanceof NotFoundError){
             res.status(e.statusCode).json({ error: e.message });
         }
@@ -133,7 +138,8 @@ app.get('/api/users/:id/wishes', async (req: Request, res: Response) => {
         res.status(200).json({
             wishes: wishesToReturn
         })
-    }catch (e: any) {
+    }
+    catch (e: any) {
         if (e instanceof NotFoundError){
             res.status(e.statusCode).json({ error: e.message });
         }
@@ -163,7 +169,8 @@ app.post('/api/users/login', async (req, res) => {
             role: user.role,
             token: jwt.sign({id: user.id, role: user.role}, tokenKey)
         });
-    } catch (e: any) {
+    } 
+    catch (e: any) {
         if (e instanceof NotFoundError || e instanceof UnauthorizedError){
             res.status(e.statusCode).json({ error: e.message });
         }
@@ -191,7 +198,8 @@ app.post('/api/users/reg', async (req: Request, res: Response) => {
         const user = await userService.registration(userToCreate);
         await basketService.create(user.id);
         res.status(201).json(user.toDTO());
-    }catch (e: any) {
+    }
+    catch (e: any) {
         if (e instanceof BadRequestError){
             res.status(e.statusCode).json({ error: e.message });
         }
@@ -220,7 +228,8 @@ app.post('/api/users/', async (req: Request, res: Response) => {
     try{
         const user = await userService.createUser(new User("", email, name, phone_number, password, role));
         res.status(201).json(user);
-    }catch (e: any) {
+    }
+    catch (e: any) {
         if (e instanceof BadRequestError){
             res.status(e.statusCode).json({ error: e.message });
         }
@@ -243,7 +252,8 @@ app.patch('/api/users/:id', async (req: Request, res: Response) => {
 
         const user = await userService.updateUser(userToUpdate);
         res.status(200).json(user.toDTO());
-    } catch (e: any) {
+    } 
+    catch (e: any) {
         if (e instanceof NotFoundError){
             res.status(e.statusCode).json({ error: e.message });
         }
@@ -280,19 +290,52 @@ app.delete('/api/users', async (req: Request, res: Response) => {
 });
 */
 
+//PHONES
 app.get('/api/phones/:id', async (req: Request, res: Response) => {
-    const phoneId = req.params.id; // Получаем id пользователя из URL и преобразуем его в число
+    const phoneId = req.params.id;
     
     try{
         const phone = await phoneService.findById(phoneId);
-        res.json(phone);
+        res.status(200).json(phone);
+    } 
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
     }
-    catch(e: any){
-        res.json(e);
+});
+
+app.get('/api/phones/:id/comments', async (req: Request, res: Response) => {
+    const phoneId = req.params.id;
+    
+    try{
+        const comments = await commentService.findByProductId(phoneId);
+        const productsDTOToReturn: returnCommentDTO[] = [];
+        for (let comment of comments){
+            productsDTOToReturn.push(comment.toDTO());
+        }
+        res.status(200).json({
+            "comments": productsDTOToReturn
+        });
+    }
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
     }
 });
 
 app.post('/api/phones', async (req: Request, res: Response) => {
+    if (Object.keys(req.body).length === 0) {
+        return res.status(400).json({error: "Bad Request"});
+    } 
+
     const { 
         name,
         producername,
@@ -303,8 +346,19 @@ app.post('/api/phones', async (req: Request, res: Response) => {
         price,
         } = req.body;
 
+    if (!(name != undefined && name != "" &&
+        producername != undefined && producername != "" &&
+        osname != undefined && osname != "" &&
+        ramsize != undefined && ramsize > 0 &&
+        memsize != undefined && memsize > 0 &&
+        camres != undefined && camres > 0 &&
+        price != undefined && price > 0
+    )){
+        return res.status(400).json({error: "Bad Request"});
+    }
     try{
-        const phone = await phoneService.create({
+        const phone = await phoneService.create(new Phone(
+            "",
             name,
             producername,
             osname,
@@ -312,17 +366,22 @@ app.post('/api/phones', async (req: Request, res: Response) => {
             memsize,
             camres,
             price,
-            });
-        res.json(phone);
+        ));
+        res.status(201).json(phone);
     }
     catch(e: any){
-        res.json(e);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
-app.put('/api/phones', async (req: Request, res: Response) => {
+app.patch('/api/phones/:id', async (req: Request, res: Response) => {
+    if (Object.keys(req.body).length === 0) {
+        return res.status(400).json({error: "Bad Request"});
+    } 
+
+    const id = req.params.id;
+
     const {
-        id, 
         name,
         producername,
         osname,
@@ -331,24 +390,38 @@ app.put('/api/phones', async (req: Request, res: Response) => {
         camres,
         price} = req.body;
 
-    try{
-        const phone = await phoneService.update({id, 
-            name,
-            producername,
-            osname,
-            ramsize,
-            memsize,
-            camres,
-            price,
-            });
-        res.json(phone);
+    if (
+        (ramsize != undefined && ramsize <= 0) ||
+        (memsize != undefined && memsize <= 0) ||
+        (camres != undefined && camres <= 0) ||
+        (price != undefined && price <= 0)
+    ){
+        return res.status(400).json({error: "Bad Request"});
     }
-    catch(e: any){
-        res.json(e);
+
+    try{
+        const phone = await phoneService.update(new Phone(id, 
+            name || "",
+            producername || "",
+            osname || "",
+            ramsize || 0,
+            memsize || 0,
+            camres || 0,
+            price || 0,
+        ));
+        res.json(phone.toDTO());
+    }
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
     }
 });
 
-app.post('/api/phones/paginate', async (req: Request, res: Response) => {
+app.get('/api/phones', async (req: Request, res: Response) => {
     const { pageNumber, pageSize, minramsize,
         maxramsize,
         minmemsize,
@@ -381,27 +454,20 @@ app.post('/api/phones/paginate', async (req: Request, res: Response) => {
     }
 });
 
-app.delete('/api/phones', async (req: Request, res: Response) => {
-    const id = req.query.id as string;
+app.delete('/api/phones/:id', async (req: Request, res: Response) => {
+    const id = req.params.id;
 
     try{
-        const client = await pool.connect();
-        await client.query(`SET ROLE ${role}`);
-        try {
-            await client.query(
-                `DELETE FROM phones WHERE id = $1`,
-                [id]
-            );
-            res.json(true);;
-        } catch (error) {
-            console.error('Error deleting phone:', error);
-            throw error;
-        } finally {
-            client.release();
-        }
+        const result = await phoneService.delete(id);
+        res.status(204).json(result);
     }
-    catch(e: any){
-        res.json(e);
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
     }
 });
 
@@ -459,12 +525,16 @@ app.get('/api/orders', async (req: Request, res: Response) => {
 });
 */
 
-app.put('/api/orders/status', async (req: Request, res: Response) => {
-    const { id, status} = req.body;
-
+//ORDERS
+app.patch('/api/orders/:id', async (req: Request, res: Response) => {
+    const id = req.params.id;
+    const {status} = req.body;
+    if (status == undefined){
+        return res.status(400).json({error: "Bad Request"});
+    }
     try{
         const order = await orderService.updateOrderStatus({id, status});
-        res.json(order);
+        res.status(200).json(order);
     }
     catch(e: any){
         res.json(e);
@@ -772,20 +842,6 @@ app.post('/api/comments', async (req: Request, res: Response) => {
                 }
             }
         )
-    }
-});
-
-
-
-app.get('/api/comments', async (req: Request, res: Response) => {
-    const productId = req.query.productId as string;
-
-    try{
-        const comments = await commentService.findByProductId(productId);
-        res.json(comments);
-    }
-    catch(e: any){
-        res.json(e);
     }
 });
 

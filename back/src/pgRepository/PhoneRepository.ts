@@ -3,12 +3,14 @@ import { phoneFullDTO, phoneSearchDTO } from "../dto/PhoneDTO";
 import { QueryResult, Pool } from 'pg';
 
 import * as conf from '../../config'
+import { NotFoundError } from "../errors/requestErrors";
 
 export interface IPhoneRepository {
     getById(id: string): Promise<Phone | null>;
     paginate(props: Partial<phoneFullDTO>, pageNumber: number, pageSize: number): Promise<Phone[]>;
     create(phone: Phone): Promise<Phone>;
     update(phone: Phone): Promise<Phone | null>;
+    delete(phoneId: string): Promise<boolean>;
 }
 
 export class PostgresPhoneRepository implements IPhoneRepository {
@@ -110,42 +112,54 @@ export class PostgresPhoneRepository implements IPhoneRepository {
 
     async update(phone: Phone): Promise<Phone | null> {
         try {
-            // Проверка, что пользователь существует
-            if (!phone.id) {
-                throw new Error('ID телефона не указан');
-            }
-
             const client = await this.pool.connect();
+    
+            const fields: string[] = [];
+            const values: any[] = [];
+    
+            if (phone.name !== "") {
+                fields.push('name = $' + (fields.length + 1));
+                values.push(phone.name);
+            }
+            if (phone.producername !== "") {
+                fields.push('producername = $' + (fields.length + 1));
+                values.push(phone.producername);
+            }
+            if (phone.osname !== "") {
+                fields.push('osname = $' + (fields.length + 1));
+                values.push(phone.osname);
+            }
+            if (phone.ramsize > 0) {
+                fields.push('ramsize = $' + (fields.length + 1));
+                values.push(phone.ramsize);
+            }
+            if (phone.memsize > 0) {
+                fields.push('memsize = $' + (fields.length + 1));
+                values.push(phone.memsize);
+            }
+            if (phone.camres > 0) {
+                fields.push('camres = $' + (fields.length + 1));
+                values.push(phone.camres);
+            }
+            if (phone.price > 0) {
+                fields.push('price = $' + (fields.length + 1));
+                values.push(phone.price);
+            }
             
-            const result = await client.query(
-                `UPDATE phones 
-                 SET 
-                    name = $1, 
-                    producername = $2, 
-                    osname = $3, 
-                    ramsize = $4, 
-                    memsize = $5, 
-                    camres = $6, 
-                    price = $7, 
-                    updated_at = CURRENT_TIMESTAMP 
-                 WHERE id = $8 
-                 RETURNING *`,
-                [
-                    phone.name,
-                    phone.producername,
-                    phone.osname,
-                    phone.ramsize,
-                    phone.memsize,
-                    phone.camres,
-                    phone.price,
-                    phone.id
-                ]
-            );
-
+            values.push(phone.id);
+    
+            const query = `
+                UPDATE phones 
+                SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP 
+                WHERE id = $${values.length} 
+                RETURNING *`;
+    
+            const result = await client.query<Phone>(query, values);
+    
             client.release();
 
             if (result.rows.length === 0) {
-                throw new Error('Телефон не найден');
+                throw new NotFoundError('Телефон не найден');
             }
 
             let phoneUpdated = new Phone(
@@ -202,6 +216,22 @@ export class PostgresPhoneRepository implements IPhoneRepository {
             return null;
         }
     }
+
+    async delete(phoneId: string): Promise<boolean> {
+        const client = await this.pool.connect();
+        try {
+            await client.query(
+                `DELETE FROM phones WHERE id = $1`,
+                [phoneId]
+            );
+            return true;
+        } catch (error: any) {
+            return false;
+        } finally {
+            client.release();
+        }
+    }
+
     async paginate(props: phoneSearchDTO, pageNumber: number, pageSize: number): Promise<Phone[]> {
         const offset = (pageNumber - 1) * pageSize;
     

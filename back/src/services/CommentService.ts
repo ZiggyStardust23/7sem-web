@@ -1,10 +1,11 @@
 import { commentCreateDTO, commentUpdateRateDTO, returnCommentDTO } from "../dto/CommentDTO";
+import { NotFoundError } from "../errors/requestErrors";
 import { Comment } from "../models/CommentModel";
 import { ICommentRepository } from "../pgRepository/CommentRepository";
 
 export interface ICommentService {
     create(comment: commentCreateDTO): Promise<returnCommentDTO>;
-    findByProductId(productId: string): Promise<returnCommentDTO[] | Error>;
+    findByProductId(productId: string): Promise<Comment[]>;
     updateRate(comment: commentUpdateRateDTO): Promise<returnCommentDTO | Error>;
     delete(commentId: string): Promise<boolean>;
 }
@@ -24,16 +25,12 @@ export class CommentService implements ICommentService {
         return Promise.resolve(commentCreated.toDTO());
     }
 
-    public async findByProductId(productId: string): Promise<returnCommentDTO[] | Error> {
-        const productsGetted = await this.commentRepository.getByProductId(productId);
-        if (productsGetted.length == 0){
-            return Promise.reject(new Error("comments not found by this product id"));
+    public async findByProductId(productId: string): Promise<Comment[]> {
+        const comments = await this.commentRepository.getByProductId(productId);
+        if (comments.length == 0){
+            throw new NotFoundError("comments not found by this product id");
         }
-        const productsDTOToReturn: returnCommentDTO[] = [];
-        for (let p of productsGetted){
-            productsDTOToReturn.push(p.toDTO());
-        }
-        return Promise.resolve(productsDTOToReturn);
+        return Promise.resolve(comments);
     }
 
     public async updateRate(comment: commentUpdateRateDTO): Promise<returnCommentDTO | Error> {
