@@ -1,54 +1,78 @@
 import { Request, Response } from 'express';
-import { IPaymentService } from '../services/PaymentService';
-import { paymentUpdateDTO } from '../dto/PaymentDTO';
+import { NotFoundError } from '../errors/requestErrors';
+import { PaymentService } from '../services/PaymentService';
+import { Payment } from '../models/PaymentModel';
+import { PostgresPaymentRepository } from '../pgRepository/PaymentRepository';
 
-export interface IPaymentController {
-    handleCreatePaymentRequest(req: Request, res: Response): Promise<void>;
-    handleUpdatePaymentRequest(req: Request, res: Response): Promise<void>;
-    handleFindPaymentByIdRequest(req: Request, res: Response): Promise<void>;
-    handleFindPaymentByOrderIdRequest(req: Request, res: Response): Promise<void>;
-}
+export class PaymentController {
+    private paymentService: PaymentService;
 
-export class PaymentController implements IPaymentController {
-    constructor(private paymentService: IPaymentService) {}
-
-    async handleCreatePaymentRequest(req: Request, res: Response): Promise<void> {
-        const { orderid } = req.body;
-        try {
-            const createdPayment = await this.paymentService.create(orderid);
-            res.status(201).json(createdPayment);
-        } catch (error: any) {
-            res.status(400).json({ error: error.message });
-        }
+    constructor() {
+        this.paymentService = new PaymentService(new PostgresPaymentRepository());
     }
 
-    async handleUpdatePaymentRequest(req: Request, res: Response): Promise<void> {
-        const { body } = req as { body: paymentUpdateDTO };
-        try {
-            const updatedPayment = await this.paymentService.update(body);
-            res.status(200).json(updatedPayment);
-        } catch (error: any) {
-            res.status(404).json({ error: error.message });
+    async createPayment(req: Request, res: Response) {
+        const { orderId } = req.body;
+        if (orderId == undefined || orderId == "") {
+            return res.status(400).json({ error: "Bad Request" });
         }
-    }
-
-    async handleFindPaymentByIdRequest(req: Request, res: Response): Promise<void> {
-        const { paymentId } = req.params;
         try {
-            const payment = await this.paymentService.findById(paymentId);
+            const paymentToCreate = new Payment("", orderId, true, 0);
+            const payment = await this.paymentService.create(paymentToCreate);
             res.status(200).json(payment);
-        } catch (error: any) {
-            res.status(404).json({ error: error.message });
+        } catch (e: any) {
+            if (e instanceof NotFoundError) {
+                res.status(e.statusCode).json({ error: e.message });
+            } else {
+                res.status(500).json({ error: e.message });
+            }
         }
     }
 
-    async handleFindPaymentByOrderIdRequest(req: Request, res: Response): Promise<void> {
-        const { orderId } = req.params;
+    async getPaymentById(req: Request, res: Response) {
+        const id = req.params.id;
         try {
-            const payment = await this.paymentService.findByOrderId(orderId);
+            const payment = await this.paymentService.findById(id);
             res.status(200).json(payment);
-        } catch (error: any) {
-            res.status(404).json({ error: error.message });
+        } catch (e: any) {
+            if (e instanceof NotFoundError) {
+                res.status(e.statusCode).json({ error: e.message });
+            } else {
+                res.status(500).json({ error: e.message });
+            }
+        }
+    }
+
+    async updatePayment(req: Request, res: Response) {
+        const id = req.params.id;
+        const { status } = req.body;
+        if (status == undefined) {
+            return res.status(400).json({ error: "Bad Request" });
+        }
+        try {
+            const payment = await this.paymentService.update(id, status);
+            res.status(200).json(payment);
+        } catch (e: any) {
+            if (e instanceof NotFoundError) {
+                res.status(e.statusCode).json({ error: e.message });
+            } else {
+                res.status(500).json({ error: e.message });
+            }
+        }
+    }
+
+    async deletePayment(req: Request, res: Response) {
+        const id = req.params.id;
+
+        try {
+            await this.paymentService.delete(id);
+            res.status(204).json();
+        } catch (e: any) {
+            if (e instanceof NotFoundError) {
+                res.status(e.statusCode).json({ error: e.message });
+            } else {
+                res.status(500).json({ error: e.message });
+            }
         }
     }
 }

@@ -1,56 +1,70 @@
-import { ICommentService } from '../services/CommentService';
 import { Request, Response } from 'express';
-import { commentCreateDTO, commentUpdateRateDTO } from '../dto/CommentDTO';
+import { NotFoundError } from '../errors/requestErrors';
+import { CommentService } from '../services/CommentService';
+import { Comment } from '../models/CommentModel';
+import { PostgresCommentRepository } from '../pgRepository/CommentRepository';
 
-export interface ICommentController {
-    create(req: Request, res: Response): Promise<void>;
-    findByProductId(req: Request, res: Response): Promise<void>;
-    updateRate(req: Request, res: Response): Promise<void>;
-    delete(req: Request, res: Response): Promise<void>;
-}
+export class CommentController {
+    private commentService: CommentService;
 
-export class CommentController implements ICommentController{
-    constructor(private commentService: ICommentService) {}
+    constructor(){
+        this.commentService = new CommentService(new PostgresCommentRepository());
+    }
+    async createComment(req: Request, res: Response) {
+        if (Object.keys(req.body).length === 0) {
+            return res.status(400).json({ error: "Bad Request" });
+        }
+        const { phoneId, userId, text } = req.body;
 
-    async create(req: Request, res: Response) {
-        const commentData: commentCreateDTO = req.body;
+        if (!((phoneId != undefined && phoneId != "") ||
+            (userId != undefined && userId != "") ||
+            (text != undefined && text != "")
+        )) {
+            return res.status(400).json({ error: "Bad Request" });
+        }
+
+        const commentToCreate = new Comment("", userId, phoneId, text, 0);
+
         try {
-            const createdComment = await this.commentService.create(commentData);
-            res.status(201).json(createdComment);
-        } catch (error: any) {
-            res.status(400).json({ message: error.message });
+            const commentCreated = await this.commentService.create(commentToCreate);
+            res.status(201).json(commentCreated);
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
         }
     }
 
-    async findByProductId(req: Request, res: Response) {
-        const productId = req.params.productId;
+    async rateComment(req: Request, res: Response) {
+        const id = req.params.id;
+        const { liked } = req.body;
+
+        if (liked == undefined) {
+            return res.status(400).json({ error: "Bad Request" });
+        }
+
         try {
-            const comments = await this.commentService.findByProductId(productId);
-            res.json(comments);
-        } catch (error: any) {
-            res.status(400).json({ message: error.message });
+            const comment = await this.commentService.updateRate(id, liked);
+            res.status(200).json(comment);
+        } catch (e: any) {
+            if (e instanceof NotFoundError) {
+                res.status(e.statusCode).json({ error: e.message });
+            } else {
+                res.status(500).json({ error: e.message });
+            }
         }
     }
 
-    async updateRate(req: Request, res: Response) {
-        const id = req.body.id;
-        const rate = req.body.rate;
-        const updateData: commentUpdateRateDTO = { id: id, rate };
-        try {
-            const updatedComment = await this.commentService.updateRate(updateData);
-            res.json(updatedComment);
-        } catch (error: any) {
-            res.status(400).json({ message: error.message });
-        }
-    }
+    async deleteComment(req: Request, res: Response) {
+        const id = req.params.id;
 
-    async delete(req: Request, res: Response) {
-        const commentId = req.params.commentId;
         try {
-            const result = await this.commentService.delete(commentId);
-            res.json({ success: result });
-        } catch (error: any) {
-            res.status(400).json({ message: error.message });
+            await this.commentService.delete(id);
+            res.status(204).json();
+        } catch (e: any) {
+            if (e instanceof NotFoundError) {
+                res.status(e.statusCode).json({ error: e.message });
+            } else {
+                res.status(500).json({ error: e.message });
+            }
         }
     }
 }

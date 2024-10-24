@@ -1,75 +1,116 @@
 import { Request, Response } from 'express';
-import { IOrderService } from '../services/OrderService';
+import { NotFoundError, BadRequestError } from '../errors/requestErrors';
+import {OrderService} from '../services/OrderService';
+import {PaymentService} from '../services/PaymentService';
+import { Order, OrderPosition, OrderStatus } from '../models/OrderModel';
+import { PostgresOrderRepository } from '../pgRepository/OrderRepository';
+import { PostgresPaymentRepository } from '../pgRepository/PaymentRepository';
 
-export interface IOrderController {
-    handleCreateOrderRequest(req: Request, res: Response): Promise<void>;
-    handleFindOrderByIdRequest(req: Request, res: Response): Promise<void>;
-    handleFindOrdersByUserIdRequest(req: Request, res: Response): Promise<void>;
-    handleUpdateOrderStatusRequest(req: Request, res: Response): Promise<void>;
-    handleAddPositionsToOrderRequest(req: Request, res: Response): Promise<void>;
-    handleRemovePositionsFromOrderRequest(req: Request, res: Response): Promise<void>;
-}
+export class OrderController {
+    private orderService: OrderService;
+    private paymentService: PaymentService;
 
-export class OrderController implements IOrderController {
-    constructor(private orderService: IOrderService) {}
-
-    async handleCreateOrderRequest(req: Request, res: Response): Promise<void> {
-        const { body } = req;
-        try {
-            const createdOrder = await this.orderService.create(body);
-            res.status(201).json(createdOrder);
-        } catch (error: any) {
-            res.status(400).json({ error: error.message });
-        }
+    constructor() {
+        this.orderService = new OrderService(new PostgresOrderRepository());
+        this.paymentService = new PaymentService(new PostgresPaymentRepository());
     }
 
-    async handleFindOrderByIdRequest(req: Request, res: Response): Promise<void> {
-        const { id } = req.params;
+    async updateOrder(req: Request, res: Response) {
+        const id = req.params.id;
+        const { status } = req.body;
+
+        if (status == undefined || status < 0 || status > 3) {
+            return res.status(400).json({ error: "Bad Request" });
+        }
+
         try {
-            const order = await this.orderService.findById(id);
+            const order = await this.orderService.updateOrderStatus({ id, status });
             res.status(200).json(order);
-        } catch (error: any) {
-            res.status(404).json({ error: error.message });
+        } catch (e: any) {
+            if (e instanceof NotFoundError) {
+                res.status(e.statusCode).json({ error: e.message });
+            } else {
+                res.status(500).json({ error: e.message });
+            }
         }
     }
 
-    async handleFindOrdersByUserIdRequest(req: Request, res: Response): Promise<void> {
-        const { userid } = req.params;
+    async deleteOrder(req: Request, res: Response) {
+        const id = req.params.id;
+
         try {
-            const orders = await this.orderService.findByUserId(userid);
-            res.status(200).json(orders);
-        } catch (error: any) {
-            res.status(404).json({ error: error.message });
+            const order = await this.orderService.deleteOrder(id);
+            res.status(204).json(order);
+        } catch (e: any) {
+            if (e instanceof NotFoundError) {
+                res.status(e.statusCode).json({ error: e.message });
+            } else {
+                res.status(500).json({ error: e.message });
+            }
         }
     }
 
-    async handleUpdateOrderStatusRequest(req: Request, res: Response): Promise<void> {
-        const { body } = req;
+    async createOrder(req: Request, res: Response) {
+        if (Object.keys(req.body).length === 0) {
+            return res.status(400).json({ error: "Bad Request" });
+        }
+
+        const { userid, address, positions } = req.body;
+
+        if (!((userid != undefined && userid != "") ||
+            (address != undefined && address != "") ||
+            (positions != undefined && positions.length > 0))) {
+            return res.status(400).json({ error: "Bad Request" });
+        }
+
+        var orderPositions: OrderPosition[] = [];
+
         try {
-            const updatedOrder = await this.orderService.updateOrderStatus(body);
-            res.status(200).json(updatedOrder);
-        } catch (error: any) {
-            res.status(404).json({ error: error.message });
+            for (let pos of positions) {
+                if (pos.productId == undefined || pos.productId == "" || pos.productsAmount == undefined || pos.productsAmount <= 0) {
+                    throw new BadRequestError("Bad positions for order");
+                }
+                orderPositions.push(new OrderPosition("", "", pos.productId, pos.productsAmount));
+            }
+        } catch (e: any) {
+            return res.status(400).json({ error: e.message });
+        }
+
+        try {
+            const result = await this.orderService.create(new Order("", userid, OrderStatus.PLACED, address, new Date(), orderPositions));
+            res.status(201).json(result);
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
         }
     }
 
-    async handleAddPositionsToOrderRequest(req: Request, res: Response): Promise<void> {
-        const { body } = req;
+    async getOrder(req: Request, res: Response) {
+        const orderId = req.params.id;
+
         try {
-            const updatedOrder = await this.orderService.addPositionsToOrder(body);
-            res.status(200).json(updatedOrder);
-        } catch (error: any) {
-            res.status(404).json({ error: error.message });
+            const order = await this.orderService.findById(orderId);
+            res.status(200).json(order);
+        } catch (e: any) {
+            if (e instanceof NotFoundError) {
+                res.status(e.statusCode).json({ error: e.message });
+            } else {
+                res.status(500).json({ error: e.message });
+            }
         }
     }
 
-    async handleRemovePositionsFromOrderRequest(req: Request, res: Response): Promise<void> {
-        const { body } = req;
+    async getOrderPayment(req: Request, res: Response) {
+        const orderId = req.params.id;
+
         try {
-            const updatedOrder = await this.orderService.removePositionsFromOrder(body);
-            res.status(200).json(updatedOrder);
-        } catch (error: any) {
-            res.status(404).json({ error: error.message });
+            const payment = await this.paymentService.findByOrderId(orderId);
+            res.status(200).json(payment);
+        } catch (e: any) {
+            if (e instanceof NotFoundError) {
+                res.status(e.statusCode).json({ error: e.message });
+            } else {
+                res.status(500).json({ error: e.message });
+            }
         }
     }
 }

@@ -1,81 +1,103 @@
 import { Request, Response } from 'express';
-import { BasketService, IBasketService } from '../services/BasketService';
-import { updateBasketDTO } from '../dto/BasketDTO';
+import { NotFoundError } from '../errors/requestErrors';
+import { BasketService } from '../services/BasketService';
+import { BasketPosition } from '../models/BasketModel';
+import { PostgresBasketRepository } from '../pgRepository/BasketRepository';
 
-export interface IBasketController {
-    handleFindByUserId(req: Request, res: Response): Promise<string | null>;
-    handleCreate(req: Request, res: Response): Promise<void>;
-    handleClear(req: Request, res: Response): Promise<void>;
-    handleCalculateTotalPrice(req: Request, res: Response): Promise<void>;
-    handleAddProductsToBasket(req: Request, res: Response): Promise<void>;
-    handleRemoveProductsFromBasket(req: Request, res: Response): Promise<void>;
-}
+export class BasketController {
+    private basketService: BasketService;
 
-export class BasketController implements IBasketController {
-    constructor(private basketService: IBasketService) {}
-
-    async handleFindByUserId(req: Request, res: Response): Promise<string | null> {
-        const { userId } = req.params;
-        try {
-            const basket = await this.basketService.findByUserId(userId);
-            if (basket instanceof Error){
-                throw basket;
-            }
-            res.status(200).json(basket);
-            return Promise.resolve(basket.id);
-        } catch (error: any) {
-            res.status(404).json({ message: error.message });
-            return Promise.resolve(null);
-        }
+    constructor() {
+        this.basketService = new BasketService(new PostgresBasketRepository());
     }
 
-    async handleCreate(req: Request, res: Response): Promise<void> {
+    async createBasket(req: Request, res: Response) {
         const { userId } = req.body;
+
+        if (userId == undefined || userId == "") {
+            return res.status(400).json({ error: "Bad Request" });
+        }
+
         try {
             const basket = await this.basketService.create(userId);
             res.status(201).json(basket);
-        } catch (error: any) {
-            res.status(400).json({ message: error.message });
+        } catch (e: any) {
+            res.status(500).json({ error: e.message });
         }
     }
 
-    async handleClear(req: Request, res: Response): Promise<void> {
-        const { basketId } = req.params;
+    async removeProductsFromBasket(req: Request, res: Response) {
+        const id = req.params.id;
+        const ids = req.query.phoneids as string;
+        const amounts = req.query.amounts as string;
+
+        const positions: BasketPosition[] = [];
+        if (ids != undefined && amounts != undefined) {
+            const idsArr = ids.split(',');
+            const amountsArr = amounts.split(',');
+
+            if (idsArr.length != amountsArr.length) {
+                return res.status(400).json({ error: "Bad Request" });
+            }
+
+            for (let i = 0; i < idsArr.length; i++) {
+                positions.push(new BasketPosition("", id, idsArr[i], parseInt(amountsArr[i])));
+            }
+        }
+
         try {
-            await this.basketService.clear(basketId);
-            res.status(200).json({ message: 'Basket cleared successfully' });
-        } catch (error: any) {
-            res.status(404).json({ message: error.message });
+            const result = await this.basketService.removeProductsFromBasket(id, positions);
+            res.status(200).json(result);
+        } catch (e: any) {
+            if (e instanceof NotFoundError) {
+                res.status(e.statusCode).json({ error: e.message });
+            } else {
+                res.status(500).json({ error: e.message });
+            }
         }
     }
 
-    async handleCalculateTotalPrice(req: Request, res: Response): Promise<void> {
-        const { basketId } = req.params;
+    async calculateTotalPrice(req: Request, res: Response) {
+        const id = req.params.id;
+
         try {
-            const totalPrice = await this.basketService.calculateTotalPrice(basketId);
-            res.status(200).json({ totalPrice });
-        } catch (error: any) {
-            res.status(404).json({ message: error.message });
+            const sum = await this.basketService.calculateTotalPrice(id);
+            res.status(200).json(sum);
+        } catch (e: any) {
+            if (e instanceof NotFoundError) {
+                res.status(e.statusCode).json({ error: e.message });
+            } else {
+                res.status(500).json({ error: e.message });
+            }
         }
     }
 
-    async handleAddProductsToBasket(req: Request, res: Response): Promise<void> {
-        const { id, positions } = req.body as updateBasketDTO;
-        try {
-            const updatedBasket = await this.basketService.addProductsToBasket({ id, positions });
-            res.status(200).json(updatedBasket);
-        } catch (error: any) {
-            res.status(400).json({ message: error.message });
-        }
-    }
+    async addProductsToBasket(req: Request, res: Response) {
+        const id = req.params.id;
+        const { positions } = req.body;
 
-    async handleRemoveProductsFromBasket(req: Request, res: Response): Promise<void> {
-        const { id, positions } = req.body as updateBasketDTO;
+        if (positions == undefined || positions.length == 0) {
+            return res.status(400).json({ error: "Bad Request" });
+        }
+
+        var basketPositions: BasketPosition[] = [];
         try {
-            const updatedBasket = await this.basketService.removeProductsFromBasket({ id, positions });
-            res.status(200).json(updatedBasket);
-        } catch (error: any) {
-            res.status(400).json({ message: error.message });
+            for (let pos of positions) {
+                basketPositions.push(new BasketPosition("", id, pos.phoneId, pos.productsAmount));
+            }
+        } catch (e: any) {
+            return res.status(400).json({ error: "Bad positions" });
+        }
+
+        try {
+            const basket = await this.basketService.addProductsToBasket(id, basketPositions);
+            res.status(200).json(basket);
+        } catch (e: any) {
+            if (e instanceof NotFoundError) {
+                res.status(e.statusCode).json({ error: e.message });
+            } else {
+                res.status(500).json({ error: e.message });
+            }
         }
     }
 }

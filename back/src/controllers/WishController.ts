@@ -1,54 +1,45 @@
-import { WishService, IWishService } from "../services/WishService";
-import { returnDTO, createDTO } from "../dto/WishDTO";
-import { Request, Response } from "express";
-import { Wish } from "../models/WishModel";
+import { Request, Response } from 'express';
+import { BadRequestError } from '../errors/requestErrors';
+import { WishService } from '../services/WishService';
+import { Wish } from '../models/WishModel';
+import { PostgresWishRepository } from '../pgRepository/WishRepository';
 
-export interface IWishController {
-    handleCreate(req: Request, res: Response): Promise<void>;
-    handleFind(req: Request, res: Response): Promise<returnDTO[] | void>;
-    handleDelete(req: Request, res: Response): Promise<boolean>;
-}
-
-export class WishController implements IWishController {
-    private wishService: IWishService;
-
-    constructor(wishService: IWishService) {
-        this.wishService = wishService;
+export class WishController {
+    private wishService: WishService;
+    constructor(){
+        this.wishService = new WishService(new PostgresWishRepository());
     }
 
-    async handleCreate(req: Request, res: Response): Promise<void> {
+    async createWish(req: Request, res: Response) {
+        const { userId, productId } = req.body;
+        if (userId == undefined || userId == "" || productId == undefined || productId == "") {
+            return res.status(400).json({ error: "Bad Request" });
+        }
         try {
-            const { userId, productId } = req.body;
-            const create: createDTO = { userId, productId };
-            const wish = await this.wishService.create(create);
-            if (wish instanceof Error){
-                throw wish;
+            const wishToCreate = new Wish("", userId, productId);
+            const result = await this.wishService.create(wishToCreate);
+            res.status(201).json(result);
+        } catch (e: any) {
+            if (e instanceof BadRequestError) {
+                res.status(e.statusCode).json({ error: e.message });
+            } else {
+                res.status(500).json({ error: e.message });
             }
-            res.status(200);
-        } catch (error: any) {
-            res.status(400).json({ error: error.message });
         }
     }
 
-    async handleFind(req: Request, res: Response): Promise<returnDTO[] | void> {
-        try {
-            const { userId } = req.body;
-            const das = await this.wishService.findByUserId(userId);
-            res.status(200).json(das);
-            if (das instanceof Error){
-                throw das;
-            }
-            return Promise.resolve(das)
-        } catch (error: any) {
-            res.status(400).json({ error: error.message });
-            Promise.resolve(null)
-        }
-    }
+    async deleteWish(req: Request, res: Response) {
+        const id = req.params.id;
 
-    async handleDelete(req: Request, res: Response): Promise<boolean> {
-            const { id } = req.body;
-            const das = await this.wishService.delete(id);
-            res.status(200).json(das);
-            return Promise.resolve(das)
+        try {
+            await this.wishService.delete(id);
+            res.status(204).json();
+        } catch (e: any) {
+            if (e instanceof BadRequestError) {
+                res.status(e.statusCode).json({ error: e.message });
+            } else {
+                res.status(500).json({ error: e.message });
+            }
+        }
     }
 }

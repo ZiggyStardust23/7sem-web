@@ -5,28 +5,32 @@ import { ICommentRepository } from "../pgRepository/CommentRepository";
 
 export interface ICommentService {
     create(comment: commentCreateDTO): Promise<returnCommentDTO>;
-    findByProductId(productId: string): Promise<Comment[]>;
-    updateRate(id: string, liked: boolean): Promise<Comment>;
+    findByProductId(productId: string): Promise<returnCommentDTO[]>;
+    updateRate(id: string, liked: boolean): Promise<returnCommentDTO>;
     delete(commentId: string): Promise<boolean>;
 }
 
 export class CommentService implements ICommentService {
     constructor(private commentRepository: ICommentRepository) {}
 
-    public async create(comment: Comment): Promise<Comment> {
+    public async create(comment: Comment): Promise<returnCommentDTO> {
         const commentCreated = await this.commentRepository.create(comment);
-        return Promise.resolve(commentCreated);
+        return Promise.resolve(commentCreated.toDTO());
     }
 
-    public async findByProductId(productId: string): Promise<Comment[]> {
+    public async findByProductId(productId: string): Promise<returnCommentDTO[]> {
         const comments = await this.commentRepository.getByProductId(productId);
         if (comments.length == 0){
             throw new NotFoundError("comments not found by this product id");
         }
-        return Promise.resolve(comments);
+        const commentsToReturn: returnCommentDTO[] = [];
+        for (let comment of comments){
+            commentsToReturn.push(comment.toDTO());
+        }
+        return Promise.resolve(commentsToReturn);
     }
 
-    public async updateRate(id: string, liked: boolean): Promise<Comment> {
+    public async updateRate(id: string, liked: boolean): Promise<returnCommentDTO> {
         const checkComment = await this.commentRepository.getById(id);
         if (checkComment == null) {
             throw new NotFoundError("comment to update not found");
@@ -37,7 +41,7 @@ export class CommentService implements ICommentService {
         if (!commentUpdated) {
             throw new InternalServerError("comment found but error occured");
         }
-        return Promise.resolve(commentUpdated);
+        return Promise.resolve(commentUpdated.toDTO());
     }
 
     public async delete(commentId: string): Promise<boolean> {
