@@ -7,6 +7,7 @@ import { createDTO } from "../dto/WishDTO";
 export interface IWishRepository{
     create(wish: Wish): Promise<Wish | null>
 	getByUserId(userId: string): Promise<Wish[]>
+    getById(id: string): Promise<Wish | null>
 	delete(id: string): Promise<boolean>
 }
 
@@ -99,6 +100,32 @@ export class PostgresWishRepository implements IWishRepository {
                 row.userid,
                 row.product_id,
             ));
+        } catch (error) {
+            console.error('Error getting wishes by product ID:', error);
+            throw error;
+        } finally {
+            client.release();
+        }
+    }
+
+    async getById(id: string): Promise<Wish | null> {
+        const client = await this.pool.connect();
+        try {
+            const result = await client.query(
+                `SELECT * FROM wishes WHERE id = $1`,
+                [id]
+            );
+            if (result.rows.length == 0){
+                return null;
+            }
+            else{
+                const createdWish = result.rows[0];
+                return new Wish(
+                    createdWish.id,
+                    createdWish.userid,
+                    createdWish.product_id,
+                );
+            }
         } catch (error) {
             console.error('Error getting comments by product ID:', error);
             throw error;

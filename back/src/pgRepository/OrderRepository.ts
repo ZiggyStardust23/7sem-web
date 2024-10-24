@@ -9,7 +9,8 @@ export interface IOrderRepository {
     getById(orderId: string): Promise<Order | null>;
     getByUserId(userid: string): Promise<Order[]>;
     update(order: Order): Promise<Order | null>;
-    updateStatus(order: Order): Promise<Order>
+    updateStatus(order: Order): Promise<Order>;
+    delete(order: Order): Promise<boolean>;
 }
 
 export class PostgresOrderRepository implements IOrderRepository {
@@ -220,11 +221,27 @@ export class PostgresOrderRepository implements IOrderRepository {
         }
     }
 
+    async delete(order: Order): Promise<boolean> {
+        const client = await this.pool.connect();
+        
+        try {    
+            await client.query(`DELETE FROM positions WHERE orderid = $1`, [order.id]);
+            await client.query(`DELETE FROM orders WHERE id = $1`, [order.id]);
+    
+            return true;
+        } catch (error: any) {
+            console.error('Ошибка при удалении заказа:', error.message);
+            return false;
+        } finally {
+            client.release();
+        }
+    }
+
     async updateStatus(order: Order): Promise<Order> {
         const client = await this.pool.connect();
 
         await client.query(
-            `UPDATE orders SET userid status = $1 WHERE id = $2`,
+            `UPDATE orders SET status = $1 WHERE id = $2`,
             [order.status, order.id]
         );
 

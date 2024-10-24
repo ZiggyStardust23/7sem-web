@@ -211,16 +211,17 @@ export class PostgresBasketRepository implements IBasketRepository {
 
             await client.query(`DELETE FROM basketpositions WHERE basketid = $1`, [basket.id]);
 
-            const positionPromises = basket.positions.map(position =>
-                client.query(
+            var positions: BasketPosition[] = [];
+
+            for (let i = 0; i < basket.positions.length; i++){
+                let result = await client.query(
                     `INSERT INTO basketpositions (basketid, phoneid, products_amount) VALUES ($1, $2, $3) RETURNING *`,
-                    [basket.id, position.phoneId, position.productsAmount]
+                    [basket.id, basket.positions[i].phoneId, basket.positions[i].productsAmount]
                 )
-            );
-            await Promise.all(positionPromises);
+                basket.positions[i].id = result.rows[0].id;
+            }
 
             await client.query('COMMIT');
-
             return basket;
         } catch (error: any) {
             await client.query('ROLLBACK');

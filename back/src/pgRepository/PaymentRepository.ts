@@ -1,12 +1,14 @@
 import { Payment } from "../models/PaymentModel";
 import { Pool } from 'pg';
 import * as conf from '../../config'
+import { NotFoundError } from "../errors/requestErrors";
 
 export interface IPaymentRepository {
-    create(payment: Payment): Promise<Payment>;
+    create(payment: Payment): Promise<Payment | null>;
     getById(paymentId: string): Promise<Payment | null>;
     getByOrderId(orderId: string): Promise<Payment | null>;
-    update(payment: Payment): Promise<Payment | null>;
+    update(id: string, status: boolean): Promise<Payment | null>;
+    delete(id: string): Promise<boolean>;
 }
 
 export class PostgresPaymentRepository implements IPaymentRepository {
@@ -56,19 +58,26 @@ export class PostgresPaymentRepository implements IPaymentRepository {
         }
     }
 
-    async create(payment: Payment): Promise<Payment> {
+    async create(payment: Payment): Promise<Payment | null> {
         const client = await this.pool.connect();
         
         try {
             await client.query('BEGIN');
     
-            // Находим позиции товаров в заказе
+            const order = await client.query(
+                `SELECT * FROM orders WHERE id = $1`,
+                [payment.orderId]
+            );
+
+            if(order.rows.length == 0){
+                throw new NotFoundError("order not found by id");
+            }
+
             const positionResult = await client.query(
                 `SELECT * FROM positions WHERE orderid = $1`,
                 [payment.orderId]
             );
     
-            // Вычисляем общую сумму заказа
             const result = await client.query(
                 `SELECT SUM(products_amount * price) AS total_price 
                  FROM positions 
@@ -77,7 +86,6 @@ export class PostgresPaymentRepository implements IPaymentRepository {
                 [payment.orderId]
             );
     
-            // Создаем платеж с полученной суммой
             const paymentResult = await client.query(
                 `INSERT INTO payments (orderid, status, sum) VALUES ($1, $2, $3) RETURNING *`,
                 [payment.orderId, payment.status, parseInt(result.rows[0].total_price) || 0]
@@ -93,7 +101,7 @@ export class PostgresPaymentRepository implements IPaymentRepository {
         } catch (error: any) {
             await client.query('ROLLBACK');
             console.error('Ошибка при создании платежа:', error.message);
-            throw error;
+            return null;
         } finally {
             client.release();
         }
@@ -143,26 +151,47 @@ export class PostgresPaymentRepository implements IPaymentRepository {
         }
     }
 
-    async update(payment: Payment): Promise<Payment | null> {
+    async update(id: string, status: boolean): Promise<Payment | null> {
         const client = await this.pool.connect();
         
         try {
             await client.query('BEGIN');
 
             const result = await client.query(
-                `UPDATE payments SET orderid = $1, status = $2, sum = $3 WHERE id = $4 RETURNING *`,
-                [payment.orderId, payment.status, payment.sum, payment.id]
+                `UPDATE payments SET status = $1 WHERE id = $2 RETURNING *`,
+                [status, id]
             );
 
             if (result.rows.length === 0) return null;
 
             await client.query('COMMIT');
 
-            return payment;
+            return new Payment(
+                result.rows[0].id,
+                result.rows[0].orderId,
+                result.rows[0].status,
+                result.rows[0].sum 
+            );
         } catch (error: any) {
             await client.query('ROLLBACK');
             console.error('Ошибка при обновлении платежа:', error.message);
-            throw error;
+            return null;
+        } finally {
+            client.release();
+        }
+    }
+
+    async delete(id: string): Promise<boolean>{
+        const client = await this.pool.connect();
+        try {
+            await client.query(
+                `DELETE FROM payments WHERE id = $1`,
+                [id]
+            );
+            return true;
+        } catch (error) {
+            console.error('Error deleting payment:', error);
+            return false;
         } finally {
             client.release();
         }

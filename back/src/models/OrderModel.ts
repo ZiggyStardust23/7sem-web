@@ -62,7 +62,8 @@ export class Order {
     public toDTO(): returnOrderDTO{
         const orderPositionsDTO: returnOrderPositionDTO[] = [];
         for (let i = 0; i < this.positions.length; i++){
-            orderPositionsDTO.push(this.positions[i].toDTO());
+            var posDTO = this.positions[i].toDTO();
+            orderPositionsDTO.push(posDTO);
         }
         return {
             id: this.id,

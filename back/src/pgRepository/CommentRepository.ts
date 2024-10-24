@@ -169,7 +169,7 @@ export class PostgresCommentRepository implements ICommentRepository {
             return true;
         } catch (error) {
             console.error('Error deleting comment:', error);
-            throw error;
+            return false;
         } finally {
             client.release();
         }

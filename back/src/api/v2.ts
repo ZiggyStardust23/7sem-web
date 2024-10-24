@@ -6,11 +6,11 @@ import {Phone, PhoneService} from '../services/PhoneService';
 import { PostgresPhoneRepository } from '../pgRepository/PhoneRepository';
 import {PaymentService} from '../services/PaymentService';
 import { PostgresPaymentRepository } from '../pgRepository/PaymentRepository';
-import {OrderService} from '../services/OrderService';
+import {Order, OrderPosition, OrderService} from '../services/OrderService';
 import { PostgresOrderRepository } from '../pgRepository/OrderRepository';
 import {CommentService} from '../services/CommentService';
 import { PostgresCommentRepository } from '../pgRepository/CommentRepository';
-import {BasketService} from '../services/BasketService';
+import {BasketPosition, BasketService} from '../services/BasketService';
 import { PostgresBasketRepository } from '../pgRepository/BasketRepository';
 import { WishService } from "../services/WishService";
 import { PostgresWishRepository } from "../pgRepository/WishRepository";
@@ -19,9 +19,12 @@ import * as conf from '../../config'
 import { User } from "../models/UserModel";
 import { userRole } from "../dto/UserDTO";
 import { BadRequestError, InternalServerError, NotFoundError, UnauthorizedError } from "../errors/requestErrors";
-import { returnOrderDTO } from "../dto/OrderDTO";
+import { OrderStatus, returnOrderDTO } from "../dto/OrderDTO";
 import { returnDTO } from "../dto/WishDTO";
 import { returnCommentDTO } from "../dto/CommentDTO";
+import { Payment } from "../models/PaymentModel";
+import { Comment } from "../models/CommentModel";
+import { Wish } from "../models/WishModel";
 
 const app: Express = express();
 const PORT = 3000; // Выберите порт, который вы хотите прослушивать
@@ -471,145 +474,130 @@ app.delete('/api/phones/:id', async (req: Request, res: Response) => {
     }
 });
 
-app.post('/api/orders/', async (req: Request, res: Response) => {
-    console.log
-    const {userid, address, positions} = req.body;
-    await orderService.create({userid, address, positions})
-                    .then(async order => {
-                        if (order instanceof Error){
-                            res.status(500)
-                        }
-                        else{
-                            res.status(200).json({
-                            })
-                        }
-                    })
-});
-
-app.get('/api/orders/:id', async (req: Request, res: Response) => {
-    const orderId = req.params.id;
-    try{
-        const order = await orderService.findById(orderId);
-        res.json(order);
-    }
-    catch(e: any){
-        res.json(e);
-    }
-});
-
-/*
-app.get('/api/orders', async (req: Request, res: Response) => {
-    const {address, positions} = req.body;
-    if (req.headers.authorization){
-        const decoded = jwt.verify(
-            req.headers.authorization.split(' ')[1],
-            tokenKey,
-            async (err, payload: any) => {
-                if (err) res.status(52)
-                else if (payload) {
-                    await orderService.findByUserId(payload.id)
-                    .then(async _orders => {
-                        if (_orders instanceof Error){
-                            res.status(500)
-                        }
-                        else{
-                            res.status(200).json({
-                                orders: _orders
-                            })
-                        }
-                    })
-                }
-            }
-        )
-    }
-});
-*/
-
 //ORDERS
 app.patch('/api/orders/:id', async (req: Request, res: Response) => {
     const id = req.params.id;
     const {status} = req.body;
-    if (status == undefined){
+    if (status == undefined || status < 0 || status > 3){
         return res.status(400).json({error: "Bad Request"});
     }
     try{
         const order = await orderService.updateOrderStatus({id, status});
         res.status(200).json(order);
     }
-    catch(e: any){
-        res.json(e);
-    }
-});
-
-app.put('/api/orders/add', async (req: Request, res: Response) => {
-    const { id, positions} = req.body;
-
-    try{
-        const order = await orderService.addPositionsToOrder({id, positions});
-        res.json(order);
-    }
-    catch(e: any){
-        res.json(e);
-    }
-});
-
-app.put('/api/orders/remove', async (req: Request, res: Response) => {
-    const { id, positions} = req.body;
-
-    try{
-        const order = await orderService.removePositionsFromOrder({id, positions});
-        res.json(order);
-    }
-    catch(e: any){
-        res.json(e);
-    }
-});
-
-app.delete('/api/orders', async (req: Request, res: Response) => {
-    const id = req.query.id as string;
-
-    try{
-        const client = await pool.connect();
-        await client.query(`SET ROLE ${role}`);
-        try {
-            await client.query(
-                `DELETE FROM orders WHERE id = $1`,
-                [id]
-            );
-            res.json(true);;
-        } catch (error) {
-            console.error('Error deleting order:', error);
-            throw error;
-        } finally {
-            client.release();
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
         }
     }
-    catch(e: any){
-        res.json(e);
+});
+
+app.delete('/api/orders/:id', async (req: Request, res: Response) => {
+    const id = req.params.id;
+
+    try{
+        const order = await orderService.deleteOrder(id);
+        res.status(204).json(order);
+    }
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
     }
 });
 
-app.delete('/api/orders/rempos', async (req: Request, res: Response) => {
-    const id = req.query.id as string;
+app.post('/api/orders/', async (req: Request, res: Response) => {
+    if (Object.keys(req.body).length === 0) {
+        return res.status(400).json({error: "Bad Request"});
+    } 
+    const {userid, address, positions} = req.body;
+
+    if (!((userid != undefined && userid != "") ||
+        (address != undefined && address != "") ||
+        (positions != undefined && positions.length > 0)
+    )){
+        return res.status(400).json({error: "Bad Request"});
+    }
+
+    var orderPositions: OrderPosition[] = [];
 
     try{
-        const client = await pool.connect();
-        await client.query(`SET ROLE ${role}`);
-        try {
-            await client.query(
-                `DELETE FROM positions WHERE id = $1`,
-                [id]
-            );
-            res.json(true);;
-        } catch (error) {
-            console.error('Error deleting position:', error);
-            throw error;
-        } finally {
-            client.release();
+        for (let pos of positions){
+            if (pos.productId == undefined || pos.productId == "" || pos.productsAmount == undefined || pos.productsAmount <= 0){
+                throw new BadRequestError("Bad positions for order")
+            }
+            orderPositions.push(new OrderPosition("", "", pos.productId, pos.productsAmount))
         }
     }
-    catch(e: any){
-        res.json(e);
+    catch (e: any) {
+        return res.status(400).json(e.message);
+    }
+    try{
+        const result = await orderService.create(new Order("", userid, OrderStatus.PLACED, address, new Date(), orderPositions));
+        res.status(201).json(result.toDTO());
+    }
+    catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/api/orders/:id', async (req: Request, res: Response) => {
+    const orderId = req.params.id;
+    try{
+        const order = await orderService.findById(orderId);
+        res.status(200).json(order.toDTO());
+    }
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
+    }
+});
+
+app.get('/api/orders/:id/payment', async (req: Request, res: Response) => {
+    const orderId = req.params.id;
+    try{
+        const payment = await paymentService.findByOrderId(orderId);
+        res.status(200).json(payment.toDTO());
+    }
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
+    }
+});
+
+//PAYMENTS
+
+app.post('/api/payments', async (req: Request, res: Response) => {
+    const {orderId} = req.body;
+    if (orderId == undefined || orderId == ""){
+        return res.status(400).json({error: "Bad Request"});
+    }
+    try{
+        const paymentToCreate = new Payment("", orderId, true, 0);
+        const payment = await paymentService.create(paymentToCreate);
+        res.status(200).json(payment.toDTO());
+    }
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
     }
 });
 
@@ -617,297 +605,254 @@ app.get('/api/payments/:id', async (req: Request, res: Response) => {
     const id = req.params.id;
     try{
         const payment = await paymentService.findById(id);
-        res.json(payment);
+        res.status(200).json(payment.toDTO());
     }
-    catch(e: any){
-        res.json(e);
-    }
-});
-
-app.get('/api/payments', async (req: Request, res: Response) => {
-    const orderId = req.query.orderId as string;
-
-    try{
-        const payment = await paymentService.findByOrderId(orderId);
-        res.json(payment);
-    }
-    catch(e: any){
-        res.json(e);
-    }
-});
-
-app.post('/api/payments', async (req: Request, res: Response) => {
-    const orderId = req.query.orderId as string;
-
-    try{
-        const payment = await paymentService.create(orderId);
-        res.json(payment);
-    }
-    catch(e: any){
-        res.json(e);
-    }
-});
-
-app.put('/api/payments', async (req: Request, res: Response) => {
-    const { id, orderId, status, sum} = req.body;
-
-    try{
-        const payment = await paymentService.update({id, orderId, status, sum});
-        res.json(payment);
-    }
-    catch(e: any){
-        res.json(e);
-    }
-});
-
-app.delete('/api/payments', async (req: Request, res: Response) => {
-    const id = req.query.id as string;
-
-    try{
-        const client = await pool.connect();
-        await client.query(`SET ROLE ${role}`);
-        try {
-            await client.query(
-                `DELETE FROM payments WHERE id = $1`,
-                [id]
-            );
-            res.json(true);;
-        } catch (error) {
-            console.error('Error deleting payment:', error);
-            throw error;
-        } finally {
-            client.release();
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
         }
     }
-    catch(e: any){
-        res.json(e);
+});
+
+app.patch('/api/payments/:id', async (req: Request, res: Response) => {
+    const id = req.params.id;
+    const {status} = req.body;
+    if (status == undefined){
+        return res.status(400).json({error: "Bad Request"});
+    }
+    try{
+        const payment = await paymentService.update(id, status);
+        res.status(200).json(payment.toDTO());
+    }
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
     }
 });
 
+app.delete('/api/payments/:id', async (req: Request, res: Response) => {
+    const id = req.params.id;
+
+    try{
+        await paymentService.delete(id);
+        res.status(204).json();
+    }
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
+    }
+});
+
+//BASKETS
+
 app.post('/api/baskets', async (req: Request, res: Response) => {
-    const userId = req.query.userid as string;
+    const {userId} = req.body;
+
+    if (userId == undefined || userId == ""){
+        return res.status(400).json({error: "Bad Request"});
+    }
 
     try{
         const order = await basketService.create(userId);
-        res.json(order);
+        res.status(201).json(order);
     }
-    catch(e: any){
-        res.json(e);
+    catch (e: any) {
+        res.status(500).json({ error: e.message });
     }
 });
 
-/*
-app.get('/api/baskets', async (req: Request, res: Response) => {
-    if (req.headers.authorization){
-        const decoded = jwt.verify(
-            req.headers.authorization.split(' ')[1],
-            tokenKey,
-            async (err, payload: any) => {
-                if (err) res.status(52)
-                else if (payload) {
-                    await basketService.findByUserId(payload.id)
-                    .then(async basket => {
-                        if (basket instanceof Error){
-                            res.status(500)
-                        }
-                        else{
-                            res.status(200).json({
-                                id: basket.id,
-                                userid: basket.userId,
-                                positions: basket.positions
-                            })
-                        }
-                    })
-                }
-            }
-        )
-    } 
-});
-*/
+app.delete('/api/baskets/:id', async (req: Request, res: Response) => {
+    const id = req.params.id;
+    const ids = req.query.phoneids as string;
+    const amounts = req.query.amounts as string;
 
-app.post('/api/baskets/clear', async (req: Request, res: Response) => {
-    const basketId = req.query.basketid as string;
+    const positions: BasketPosition[] = [];
+    if(ids != undefined && amounts != undefined){
+        const idsArr = ids.split(',');
+        const amountsArr = amounts.split(',');
+
+        if (idsArr.length != amountsArr.length){
+            return res.status(400).json({error: "Bad Request"});
+        }
+
+        for (let i = 0; i < idsArr.length; i++){
+            positions.push(new BasketPosition("", id, idsArr[i], parseInt(amountsArr[i])));
+        }
+    }
+    
+    try{
+        const result = await basketService.removeProductsFromBasket(id, positions);
+        res.status(200).json(result.toDTO());
+    }
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
+    }
+});
+
+app.get('/api/baskets/:id/price', async (req: Request, res: Response) => {
+    const id = req.params.id;
 
     try{
-        const result = await basketService.clear(basketId);
-        res.json(result)
+        const sum = await basketService.calculateTotalPrice(id);
+        res.status(200).json(sum);
     }
-    catch(e: any){
-        res.json(e);
-    }
-});
-
-app.get('/api/baskets/price', async (req: Request, res: Response) => {
-    const basketId = req.query.basketid as string;
-
-    try{
-        const sum = await basketService.calculateTotalPrice(basketId);
-        res.json(sum);
-    }
-    catch(e: any){
-        res.json(e);
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
     }
 });
 
-app.put('/api/baskets/add', async (req: Request, res: Response) => {
-    const {id, positions} = req.body;
+app.post('/api/baskets/:id', async (req: Request, res: Response) => {
+    const id = req.params.id;
+    const {positions} = req.body;
 
+    if (positions == undefined || positions.length == 0){
+        res.status(400).json({ error: "bad request" });
+    }
+
+    var basketPositions: BasketPosition[] = [];  
     try{
-        const basket = await basketService.addProductsToBasket({id, positions});
-        res.status(200).json(basket);
-    }
-    catch(e: any){
-        res.json(e);
-    }
-});
-
-app.put('/api/baskets/remove', async (req: Request, res: Response) => {
-    const {id, positions} = req.body;
-
-    try{
-        const basket = await basketService.removeProductsFromBasket({id, positions});
-        res.json(basket);
-    }
-    catch(e: any){
-        res.json(e);
-    }
-});
-
-app.delete('/api/baskets', async (req: Request, res: Response) => {
-    const id = req.query.id as string;
-
-    try{
-        const client = await pool.connect();
-        await client.query(`SET ROLE ${role}`);
-        try {
-            await client.query(
-                `DELETE FROM baskets WHERE id = $1`,
-                [id]
-            );
-            res.json(true);;
-        } catch (error) {
-            console.error('Error deleting basket:', error);
-            throw error;
-        } finally {
-            client.release();
+        for (let pos of positions){
+            basketPositions.push(new BasketPosition("", id, pos.phoneId, pos.productsAmount));
         }
     }
     catch(e: any){
-        res.json(e);
+        res.status(400).json({ error: "bad positions" });
     }
-});
-
-app.delete('/api/baskets/rempos', async (req: Request, res: Response) => {
-    const id = req.query.id as string;
 
     try{
-        const client = await pool.connect();
-        await client.query(`SET ROLE ${role}`);
-        try {
-            await client.query(
-                `DELETE FROM basketpositions WHERE id = $1`,
-                [id]
-            );
-            res.json(true);;
-        } catch (error) {
-            console.error('Error deleting position:', error);
-            throw error;
-        } finally {
-            client.release();
+        const basket = await basketService.addProductsToBasket(id, basketPositions);
+        res.status(200).json(basket.toDTO());
+    }
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
         }
     }
-    catch(e: any){
-        res.json(e);
-    }
 });
+
+//COMMENTS
 
 app.post('/api/comments', async (req: Request, res: Response) => {
-    const {productId, text} = req.body;
-    if (req.headers.authorization){
-        const decoded = jwt.verify(
-            req.headers.authorization.split(' ')[1],
-            tokenKey,
-            async (err, payload: any) => {
-                if (err) res.status(52)
-                else if (payload) {
-                    await commentService.create({userid: payload.id, productId, text})
-                    .then(async _orders => {
-                        if (_orders instanceof Error){
-                            res.status(500)
-                        }
-                        else{
-                            res.status(200)
-                        }
-                    })
-                }
-            }
-        )
+    if (Object.keys(req.body).length === 0) {
+        return res.status(400).json({error: "Bad Request"});
+    } 
+    const {phoneId, userId, text} = req.body;
+
+    if (!((phoneId != undefined && phoneId != "") ||
+        (userId != undefined && userId != "") ||
+        (text != undefined && text != "")
+    )){
+        return res.status(400).json({error: "Bad Request"});
+    }
+
+    const commentToCreate = new Comment("", userId, phoneId, text, 0);
+
+    try{
+        const commentCreated = await commentService.create(commentToCreate)
+        res.status(201).json(commentCreated.toDTO());
+    }
+    catch (e: any) {
+        res.status(500).json({ error: e.message });
     }
 });
 
-app.put('/api/comments', async (req: Request, res: Response) => {
-    const {id, rate} = req.body;
+app.patch('/api/comments/:id/rate', async (req: Request, res: Response) => {
+    const id = req.params.id;
+    const {liked} = req.body;
+
+    if(liked == undefined){
+        return res.status(400).json({error: "Bad Request"});
+    }
 
     try{
-        const comment = await commentService.updateRate({id, rate});
-        res.json(comment);
+        const comment = await commentService.updateRate(id, liked);
+        res.status(200).json(comment);
     }
-    catch(e: any){
-        res.json(e);
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
     }
 });
 
-app.delete('/api/comments', async (req: Request, res: Response) => {
-    const commentId = req.query.commentId as string;
+app.delete('/api/comments/:id', async (req: Request, res: Response) => {
+    const id = req.params.id;
 
     try{
-        const result = await commentService.delete(commentId);
-        res.json(result);
+        const result = await commentService.delete(id);
+        res.status(204).json(result);
     }
-    catch(e: any){
-        res.json(e);
+    catch (e: any) {
+        if (e instanceof NotFoundError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
     }
 });
 
 app.post('/api/wishes', async (req: Request, res: Response) => {
-    const {userid, productId} = req.body;
-    await wishService.create({userId: userid, productId: productId})
-                    .then(async => {
-                        res.status(200)
-                    })
+    const {userId, productId} = req.body;
+    if (userId == undefined || userId == "" || productId == undefined || productId == ""){
+        return res.status(400).json({error: "Bad Request"});
+    }
+    try{
+        const wishToCreate = new Wish("", userId, productId);
+        const result = await wishService.create(wishToCreate);
+        res.status(201).json(result);
+    }
+    catch (e: any) {
+        if (e instanceof BadRequestError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
+    }
 });
 
-/*
-app.get('/api/wishes', async (req: Request, res: Response) => {
-    if (req.headers.authorization){
-        const decoded = jwt.verify(
-            req.headers.authorization.split(' ')[1],
-            tokenKey,
-            async (err, payload: any) => {
-                if (err) res.status(52)
-                else if (payload) {
-                    await wishService.findByUserId(payload.id)
-                    .then(async _wishes => {
-                        res.status(200).json({
-                            wishes: _wishes
-                        })
-                    })
-                }
-            }
-        )
-    } 
-});
-*/
-
-app.delete('/api/wishes', async (req: Request, res: Response) => {
-    const id = req.query.id as string;
+app.delete('/api/wishes/:id', async (req: Request, res: Response) => {
+    const id = req.params.id;
 
     try{
         const result = await wishService.delete(id);
-        res.json(result);
+        res.status(204).json(result);
     }
-    catch(e: any){
-        res.json(e);
+    catch (e: any) {
+        if (e instanceof BadRequestError){
+            res.status(e.statusCode).json({ error: e.message });
+        }
+        else{
+            res.status(500).json({ error: e.message });
+        }
     }
 });
 

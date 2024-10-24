@@ -2,10 +2,10 @@ import { Wish } from "../models/WishModel";
 import { IWishRepository } from "../pgRepository/WishRepository";
 import { createDTO, returnDTO } from "../dto/WishDTO";
 import * as bcrypt from 'bcrypt';
-import { NotFoundError } from "../errors/requestErrors";
+import { BadRequestError, NotFoundError } from "../errors/requestErrors";
 
 export interface IWishService {
-    create(wish: createDTO): Promise<returnDTO | Error>
+    create(wish: Wish): Promise<Wish>
 	findByUserId(userId: string): Promise<Wish[]>
 	delete(id: string): Promise<boolean>
 }
@@ -13,13 +13,12 @@ export interface IWishService {
 export class WishService implements IWishService {
     constructor(private wishRepository: IWishRepository) {}
 
-    async create(wish: createDTO): Promise<returnDTO | Error> {
-        const w = new Wish("", wish.userId, wish.productId);
-        const wishCreated = await this.wishRepository.create(w);
+    async create(wish: Wish): Promise<Wish> {
+        const wishCreated = await this.wishRepository.create(wish);
         if (wishCreated == null){
-            return Promise.resolve ({id: "0", userId: "0", productId: "0"})
+            throw new BadRequestError("wish already exists")
         }
-        return Promise.resolve (wishCreated.toDTO())
+        return Promise.resolve (wishCreated)
     }
 
     async findByUserId(userId: string): Promise<Wish[]> {
@@ -31,7 +30,12 @@ export class WishService implements IWishService {
     }
 
     async delete(id: string): Promise<boolean>{
-        return this.wishRepository.delete(id);
+        const wishGetted = await this.wishRepository.getById(id);
+        if (wishGetted == null){
+            throw new NotFoundError("wishes not found by this user id")
+        }
+        await this.wishRepository.delete(id);
+        return true;
     }
 }
 
