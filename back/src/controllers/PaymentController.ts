@@ -19,7 +19,7 @@ export class PaymentController {
         try {
             const paymentToCreate = new Payment("", orderId, true, 0);
             const payment = await this.paymentService.create(paymentToCreate);
-            res.status(200).json(payment);
+            res.status(200).json(payment.toDTO());
         } catch (e: any) {
             if (e instanceof NotFoundError) {
                 res.status(e.statusCode).json({ error: e.message });
@@ -33,7 +33,7 @@ export class PaymentController {
         const id = req.params.id;
         try {
             const payment = await this.paymentService.findById(id);
-            res.status(200).json(payment);
+            res.status(200).json(payment.toDTO());
         } catch (e: any) {
             if (e instanceof NotFoundError) {
                 res.status(e.statusCode).json({ error: e.message });
@@ -51,7 +51,7 @@ export class PaymentController {
         }
         try {
             const payment = await this.paymentService.update(id, status);
-            res.status(200).json(payment);
+            res.status(200).json(payment.toDTO());
         } catch (e: any) {
             if (e instanceof NotFoundError) {
                 res.status(e.statusCode).json({ error: e.message });

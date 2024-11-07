@@ -18,7 +18,7 @@ export class WishController {
         try {
             const wishToCreate = new Wish("", userId, productId);
             const result = await this.wishService.create(wishToCreate);
-            res.status(201).json(result);
+            res.status(201).json(result.toDTO());
         } catch (e: any) {
             if (e instanceof BadRequestError) {
                 res.status(e.statusCode).json({ error: e.message });

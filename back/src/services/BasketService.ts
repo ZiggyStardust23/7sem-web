@@ -4,29 +4,29 @@ import { returnBasketDTO, updateBasketDTO } from '../dto/BasketDTO';
 import { InternalServerError, NotFoundError } from '../errors/requestErrors';
 
 export interface IBasketService {
-    findByUserId(userId: string): Promise<returnBasketDTO>;
-    create(userId: string): Promise<returnBasketDTO>;
+    findByUserId(userId: string): Promise<Basket>;
+    create(userId: string): Promise<Basket>;
     clear(basketId: string): Promise<boolean>;
     calculateTotalPrice(basketId: string): Promise<number>;
-    addProductsToBasket(id: string, positions: BasketPosition[]): Promise<returnBasketDTO>;
-    removeProductsFromBasket(id: string, positions: BasketPosition[]): Promise<returnBasketDTO>;
+    addProductsToBasket(id: string, positions: BasketPosition[]): Promise<Basket>;
+    removeProductsFromBasket(id: string, positions: BasketPosition[]): Promise<Basket>;
 }
 
 export class BasketService implements IBasketService {
     constructor(private basketRepository: IBasketRepository) {}
 
-    public async create(userId: string): Promise<returnBasketDTO> {
+    public async create(userId: string): Promise<Basket> {
         const basketCreated = await this.basketRepository.create(userId);
-        return Promise.resolve(basketCreated.toDTO());
+        return Promise.resolve(basketCreated);
     }
 
-    public async findByUserId(userId: string): Promise<returnBasketDTO> {
+    public async findByUserId(userId: string): Promise<Basket> {
         console.log(userId)
         const basketGetted = await this.basketRepository.getByuserid(userId);
         if (basketGetted == null){
             throw new NotFoundError("basket not found by id");
         }
-        return Promise.resolve(basketGetted.toDTO());
+        return Promise.resolve(basketGetted);
     }
 
     public async clear(basketId: string): Promise<boolean> {
@@ -41,7 +41,7 @@ export class BasketService implements IBasketService {
         return this.basketRepository.calculateTotalPrice(basketId);
     }
 
-    public async addProductsToBasket(id: string, positions: BasketPosition[]): Promise<returnBasketDTO> {
+    public async addProductsToBasket(id: string, positions: BasketPosition[]): Promise<Basket> {
         const checkBasket = await this.basketRepository.getById(id);
         if (checkBasket == null){
             throw new NotFoundError("basket not found by id");
@@ -65,10 +65,10 @@ export class BasketService implements IBasketService {
             throw new InternalServerError("basket not updated, error occured");
         }
 
-        return Promise.resolve(basketUpdated.toDTO());
+        return Promise.resolve(basketUpdated);
     }
 
-    public async removeProductsFromBasket(id: string, positions: BasketPosition[]): Promise<returnBasketDTO> {
+    public async removeProductsFromBasket(id: string, positions: BasketPosition[]): Promise<Basket> {
         const checkBasket = await this.basketRepository.getById(id);
         if (checkBasket == null){
             throw new NotFoundError("basket not found by id");
@@ -98,7 +98,7 @@ export class BasketService implements IBasketService {
             throw new InternalServerError("basket not updated, error occured");
         }
 
-        return Promise.resolve(basketUpdated.toDTO());
+        return Promise.resolve(basketUpdated);
     }
 }
 

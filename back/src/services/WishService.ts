@@ -5,32 +5,28 @@ import * as bcrypt from 'bcrypt';
 import { BadRequestError, NotFoundError } from "../errors/requestErrors";
 
 export interface IWishService {
-    create(wish: Wish): Promise<returnDTO>
-	findByUserId(userId: string): Promise<returnDTO[]>
+    create(wish: Wish): Promise<Wish>
+	findByUserId(userId: string): Promise<Wish[]>
 	delete(id: string): Promise<boolean>
 }
 
 export class WishService implements IWishService {
     constructor(private wishRepository: IWishRepository) {}
 
-    async create(wish: Wish): Promise<returnDTO> {
+    async create(wish: Wish): Promise<Wish> {
         const wishCreated = await this.wishRepository.create(wish);
         if (wishCreated == null){
             throw new BadRequestError("wish already exists")
         }
-        return Promise.resolve (wishCreated.toDTO())
+        return Promise.resolve (wishCreated)
     }
 
-    async findByUserId(userId: string): Promise<returnDTO[]> {
+    async findByUserId(userId: string): Promise<Wish[]> {
         const wishGetted = await this.wishRepository.getByUserId(userId);
         if (wishGetted.length == 0){
             throw new NotFoundError("wishes not found by this user id")
         }
-        const wishesToReturn: returnDTO[] = [];
-        for (let i = 0; i < wishGetted.length; i++){
-            wishesToReturn.push(wishGetted[i].toDTO());
-        }
-        return Promise.resolve(wishesToReturn)
+        return Promise.resolve(wishGetted)
     }
 
     async delete(id: string): Promise<boolean>{

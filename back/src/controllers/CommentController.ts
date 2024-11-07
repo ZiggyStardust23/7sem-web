@@ -27,7 +27,7 @@ export class CommentController {
 
         try {
             const commentCreated = await this.commentService.create(commentToCreate);
-            res.status(201).json(commentCreated);
+            res.status(201).json(commentCreated.toDTO());
         } catch (e: any) {
             res.status(500).json({ error: e.message });
         }
@@ -43,7 +43,7 @@ export class CommentController {
 
         try {
             const comment = await this.commentService.updateRate(id, liked);
-            res.status(200).json(comment);
+            res.status(200).json(comment.toDTO());
         } catch (e: any) {
             if (e instanceof NotFoundError) {
                 res.status(e.statusCode).json({ error: e.message });

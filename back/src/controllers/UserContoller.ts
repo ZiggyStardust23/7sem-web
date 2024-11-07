@@ -11,6 +11,8 @@ import { WishService } from '../services/WishService';
 import { OrderService } from '../services/OrderService';
 import { BasketService } from '../services/BasketService';
 import { UserService } from '../services/UserService';
+import { returnOrderDTO } from '../dto/OrderDTO';
+import { returnDTO } from '../dto/WishDTO';
 const tokenKey = '1a2b-3c4d-5e6f-7g8h';
 
 export class UserController {
@@ -53,7 +55,11 @@ export class UserController {
 
         try {
             const orders = await this.orderService.findByUserId(userId);
-            res.status(200).json({ orders });
+            const ordersToReturn: returnOrderDTO[] = [];
+            for (let order of orders){
+                ordersToReturn.push(order.toDTO());
+            }
+            res.status(200).json({ "orders": ordersToReturn });
         } catch (e: any) {
             if (e instanceof NotFoundError) {
                 res.status(e.statusCode).json({ error: e.message });
@@ -67,8 +73,12 @@ export class UserController {
         const userId = req.params.id;
 
         try {
-            const wishes = await this.wishService.findByUserId(userId);
-            res.status(200).json({ wishes });
+            const wishGetted = await this.wishService.findByUserId(userId);
+            const wishesToReturn: returnDTO[] = [];
+            for (let i = 0; i < wishGetted.length; i++){
+                wishesToReturn.push(wishGetted[i].toDTO());
+            }
+            res.status(200).json({ "wishes": wishesToReturn });
         } catch (e: any) {
             if (e instanceof NotFoundError) {
                 res.status(e.statusCode).json({ error: e.message });
@@ -127,7 +137,7 @@ export class UserController {
             const user = await this.userService.registration(newUser);
             await this.basketService.create(user.id);
 
-            res.status(201).json(user);
+            res.status(201).json(user.toDTO());
         } catch (e: any) {
             if (e instanceof BadRequestError) {
                 res.status(e.statusCode).json({ error: e.message });
@@ -150,7 +160,7 @@ export class UserController {
 
         try {
             const user = await this.userService.createUser(new User("", email, name, phone_number, password, role));
-            res.status(201).json(user);
+            res.status(201).json(user.toDTO());
         } catch (e: any) {
             if (e instanceof BadRequestError) {
                 res.status(e.statusCode).json({ error: e.message });
@@ -172,7 +182,7 @@ export class UserController {
             const updatedUser = new User(userId, name || "", email || "", password || "", phone_number || "", userRole.UserRoleCustomer);
             const user = await this.userService.updateUser(updatedUser);
 
-            res.status(200).json(user);
+            res.status(200).json(user.toDTO());
         } catch (e: any) {
             if (e instanceof NotFoundError) {
                 res.status(e.statusCode).json({ error: e.message });

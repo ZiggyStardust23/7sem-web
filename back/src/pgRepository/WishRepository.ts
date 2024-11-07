@@ -11,6 +11,54 @@ export interface IWishRepository{
 	delete(id: string): Promise<boolean>
 }
 
+class WishDA {
+    private _id = "";
+    get id(): string{
+        return this._id;
+    }
+    set id(idToSet: string){
+        this._id = idToSet;
+    }
+
+    private _userid = "";
+    get userid(): string{
+        return this._userid;
+    }
+    set userid(idToSet: string){
+        this._userid = idToSet;
+    }
+
+    private _productid = "";
+    get productid(): string{
+        return this._productid;
+    }
+    set productid(idToSet: string){
+        this._productid = idToSet;
+    }
+
+    constructor(id: string, userid: string, productid: string){
+        this._id = id;
+        this._userid = userid;
+        this._productid = productid;
+    }
+
+    public static fromService(wish: Wish): WishDA{
+        return new WishDA(
+            wish.id,
+            wish.userid,
+            wish.productid
+        )
+    }
+
+    public toService(): Wish{
+        return new Wish(
+            this.id,
+            this.userid,
+            this.productid
+        )
+    }
+}
+
 export class PostgresWishRepository implements IWishRepository {
     private pool: Pool;
 
@@ -61,25 +109,26 @@ export class PostgresWishRepository implements IWishRepository {
     async create(wish: Wish): Promise<Wish | null> {
         const client = await this.pool.connect();
         try {
+            const wda = WishDA.fromService(wish);
             const resultCheck = await client.query(
                 `SELECT * FROM wishes WHERE userid = $1 AND product_id = $2`,
-                [wish.userid, wish.productid]
+                [wda.userid, wda.productid]
             );
             if (resultCheck.rows.length != 0){
-                if (resultCheck.rows[0].product_id == parseInt(wish.productid)){
+                if (resultCheck.rows[0].product_id == parseInt(wda.productid)){
                     return null;
                 }
             }
             const result = await client.query(
                 `INSERT INTO wishes (userid, product_id) VALUES ($1, $2) RETURNING *`,
-                [wish.userid, wish.productid]
+                [wda.userid, wda.productid]
             );
             const createdWish = result.rows[0];
-            return new Wish(
+            return new WishDA(
                 createdWish.id,
                 createdWish.userid,
                 createdWish.product_id,
-            );
+            ).toService();
         } catch (error) {
             console.error('Error creating wish:', error);
             throw error;
@@ -95,11 +144,11 @@ export class PostgresWishRepository implements IWishRepository {
                 `SELECT * FROM wishes WHERE userid = $1`,
                 [userId]
             );
-            return result.rows.map(row => new Wish(
+            return result.rows.map(row => new WishDA(
                 row.id,
                 row.userid,
                 row.product_id,
-            ));
+            ).toService());
         } catch (error) {
             console.error('Error getting wishes by product ID:', error);
             throw error;
@@ -120,11 +169,11 @@ export class PostgresWishRepository implements IWishRepository {
             }
             else{
                 const createdWish = result.rows[0];
-                return new Wish(
+                return new WishDA(
                     createdWish.id,
                     createdWish.userid,
                     createdWish.product_id,
-                );
+                ).toService();
             }
         } catch (error) {
             console.error('Error getting comments by product ID:', error);

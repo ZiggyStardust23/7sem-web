@@ -3,7 +3,7 @@ info:
   title: My API
   version: v1
 paths:
-  /users/login:
+  /api/users/login:
     post:
       tags:
         - users
@@ -45,7 +45,7 @@ paths:
                         type: string
         '401':
           description: Неверный email или пароль
-  /users/reg:
+  /api/users/reg:
     post:
       tags:
         - users
@@ -73,7 +73,7 @@ paths:
           description: Пользователь успешно зарегистрирован
         '400':
           description: Некорректные данные регистрации
-  /users:
+  /api/users:
     post:
       tags:
         - users
@@ -112,7 +112,7 @@ paths:
                     format: int64
         '400':
           description: Некорректные данные для создания пользователя
-  /users/{id}:
+  /api/users/{id}:
     patch:
       tags:
         - users
@@ -160,7 +160,7 @@ paths:
           description: Некорректные данные для обновления пользователя
         '404':
           description: Пользователь не найден
-  /users/{id}/orders:
+  /api/users/{id}/orders:
     get:
       tags:
         - users
@@ -209,7 +209,7 @@ paths:
                       description: ID пользователя
         '404':
           description: Заказы не найдены
-  /users/{id}/basket:
+  /api/users/{id}/basket:
     get:
       tags:
         - users
@@ -248,7 +248,7 @@ paths:
                             description: Количество телефонов в позиции
         '404':
           description: Корзина не найдена
-  /users/{id}/wishes:
+  /api/users/{id}/wishes:
     get:
       tags:
         - users
@@ -284,7 +284,7 @@ paths:
                             description: id телефона
         '404':
           description: Товары не найдены
-  /phones/{id}/comments:
+  /api/phones/{id}/comments:
     get:
       tags:
         - phones
@@ -328,7 +328,7 @@ paths:
                             type: string
         '404':
           description: Товар не найден
-  /phones/{id}:
+  /api/phones/{id}:
     get:
       tags:
         - phones
@@ -464,7 +464,7 @@ paths:
           description: Телефон успешно удален
         '404':
           description: Телефон не найден
-  /phones:
+  /api/phones:
     post:
       tags:
         - phones
@@ -651,7 +651,7 @@ paths:
                         camres:
                           type: number
                           description: Разрешение камеры.
-  /orders:
+  /api/orders:
     post:
       tags:
         - orders
@@ -666,11 +666,17 @@ paths:
                   type: array
                   description: Список позиций заказа
                   items:
+                    id: 
+                      type: string
+                    userid: 
+                      type: string
+                    address:
+                      type: string
                     type: object
                     properties:
                       phoneid:
                         type: integer
-                        format: int64
+                        format: string
                         description: ID телефона
                       amount:
                         type: integer
@@ -684,10 +690,23 @@ paths:
               schema:
                 type: object
                 properties:
-                  id:
-                    type: integer
-                    format: int64
-                    description: ID созданного заказа
+                  items:
+                    id: 
+                      type: string
+                    userid: 
+                      type: string
+                    address:
+                      type: string
+                    type: object
+                    properties:
+                      phoneid:
+                        type: integer
+                        format: string
+                        description: ID телефона
+                      amount:
+                        type: integer
+                        format: int32
+                        description: Количество телефонов в позиции
         '400':
           description: Некорректные данные для создания заказа
     delete:
@@ -699,7 +718,7 @@ paths:
           description: Заказ успешно удален
         '404':
           description: Заказ не найден
-  /orders/{id}:
+  /api/orders/{id}:
     get:
       tags:
         - orders
@@ -803,7 +822,7 @@ paths:
           description: Некорректное значение статуса заказа
         '404':
           description: Заказ не найден
-  /orders/{id}/payment:
+  /api/orders/{id}/payment:
     get:
       tags:
         - orders
@@ -837,7 +856,7 @@ paths:
                     description: статус заказа
         '404':
           description: Заказ не найден
-  /payments/{id}:
+  /api/payments/{id}:
     get:
       tags:
         - payments
@@ -923,7 +942,7 @@ paths:
           description: Некорректные данные для обновления платежа
         '404':
           description: Платеж не найден
-  /payments:
+  /api/payments:
     post:
       tags:
         - payments
@@ -949,7 +968,7 @@ paths:
                     type: string
         '400':
           description: Некорректные данные для создания платежа
-  /baskets/{id}:
+  /api/baskets/{id}:
     delete:
       tags:
         - baskets
@@ -1047,7 +1066,7 @@ paths:
                             description: Количество телефонов в позиции
         '400':
           description: Некорректные данные для добавления товара
-  /baskets:
+  /api/baskets:
     post:
       tags:
         - baskets
@@ -1066,7 +1085,7 @@ paths:
           description: Корзина создана
         '400':
           description: Некорректные данные для создания корзины
-  /baskets/{id}/price:
+  /api/baskets/{id}/price:
     get:
       tags:
         - baskets
@@ -1087,7 +1106,7 @@ paths:
                 type: number
         '404':
           description: Корзина не найдена
-  /comments:
+  /api/comments:
     post:
       tags:
         - comments
@@ -1112,7 +1131,7 @@ paths:
           description: Комментарий создан
         '400':
           description: Некорректные данные для создания комментария
-  /comments/{id}:
+  /api/comments/{id}:
     delete:
       tags:
         - comments
@@ -1129,7 +1148,7 @@ paths:
           description: Комментарий успешно удален
         '404':
           description: Комментарий не найден
-  /comments/{id}/rate:
+  /api/comments/{id}/rate:
     patch:
       tags:
         - comments
@@ -1155,7 +1174,7 @@ paths:
           description: Рейтинг успешно обновлен
         '404':
           description: Комментарий не найден
-  /wishes:
+  /api/wishes:
     post:
       tags:
         - wishes
@@ -1177,7 +1196,7 @@ paths:
           description: Желаемый товар создан
         '400':
           description: Некорректные данные для создания желаемого товара
-  /wishes/{id}:
+  /api/wishes/{id}:
     delete:
       tags:
         - wishes
@@ -1195,10 +1214,10 @@ paths:
         '404':
           description: Желаемый товар не найден
 tags:
-  - name: phones
   - name: users
   - name: orders
   - name: payments
   - name: comments
+  - name: phones
   - name: wishes
   - name: baskets

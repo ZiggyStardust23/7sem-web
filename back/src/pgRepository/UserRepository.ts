@@ -2,6 +2,7 @@ import { User } from "../models/UserModel"
 import { Pool } from 'pg';
 import * as conf from '../../config'
 import { BadRequestError, NotFoundError } from "../errors/requestErrors";
+import { userRole } from "../models/userTypes";
 
 
 interface IUserRepository{
@@ -11,6 +12,88 @@ interface IUserRepository{
 	getByEmail(email: string): Promise<User | null>
 	getById(id: string): Promise<User | null>
 	delete(id: string): Promise<boolean>
+}
+
+export class UserDA {
+    private _id = "";
+    get id(): string{
+        return this._id;
+    }
+    set id(idToSet: string){
+        this._id = idToSet;
+    }
+
+    private _email = "";
+    get email(): string{
+        return this._email;
+    }
+    set email(nameToSet: string){
+        this._email = nameToSet;
+    }
+
+    private _phone_number = "";
+    get phone_number(): string{
+        return this._phone_number;
+    }
+    set phone_number(phone_numberToSet: string){
+        this._phone_number = phone_numberToSet;
+    }
+
+    private _name = "";
+    get name(): string{
+        return this._name;
+    }
+    set name(nameToSet: string){
+        this._name = nameToSet;
+    }
+
+    private _password = "";
+    get password(): string{
+        return this._password;
+    }
+    set password(passwordToSet: string){
+        this._password = passwordToSet;
+    }
+
+    private _role: userRole = userRole.UserRoleCustomer;
+    get role(): userRole{
+        return this._role;
+    }
+    set role(userRoleToSet: userRole){
+        this._role = userRoleToSet;
+    }
+
+    constructor(id: string, name: string, email: string, password: string, phone_number: string,
+    role: userRole){
+        this._id = id;
+        this._name = name;
+        this._email = email;
+        this._password = password;
+        this._phone_number = phone_number;
+        this._role = role;
+    }
+
+    public static fromServce(user: User): UserDA{
+        return new UserDA(
+            user.id,
+            user.name,
+            user.email,
+            user.password, 
+            user.phone_number,
+            user.role
+        )
+    }
+
+    public toService(): User{
+        return new User(
+            this.id,
+            this.name,
+            this.email,
+            this.password,
+            this.phone_number,
+            this.role,
+        )
+    }
 }
 
 export class PostgresUserRepository implements IUserRepository {
@@ -65,19 +148,18 @@ export class PostgresUserRepository implements IUserRepository {
 
     async create(user: User): Promise<User> {
             const client = await this.pool.connect();
-            console.log(user)
+            const uda = UserDA.fromServce(user);
             const result = await client.query<User>(
                 `INSERT INTO users (name, email, password, phone_number, role) 
                 VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-                [user.name, user.email, user.password, user.phone_number, user.role]
+                [uda.name, uda.email, uda.password, uda.phone_number, uda.role]
             );
 
-            console.log(result)
 
             client.release();
 
             let toParse = result.rows[0];
-            let userCreated = new User(
+            let userCreated = new UserDA(
                 toParse.id, 
                 toParse.name,
                 toParse.email,
@@ -85,34 +167,35 @@ export class PostgresUserRepository implements IUserRepository {
                 toParse.phone_number,
                 toParse.role
             )
-            return userCreated;
+            return userCreated.toService();
     }
 
     async update(user: User): Promise<User | null> {
         try {
             const client = await this.pool.connect();
     
+            const uda = UserDA.fromServce(user);
             const fields: string[] = [];
             const values: any[] = [];
     
-            if (user.name !== "") {
+            if (uda.name !== "") {
                 fields.push('name = $' + (fields.length + 1));
-                values.push(user.name);
+                values.push(uda.name);
             }
-            if (user.email !== "") {
+            if (uda.email !== "") {
                 fields.push('email = $' + (fields.length + 1));
-                values.push(user.email);
+                values.push(uda.email);
             }
-            if (user.password !== "") {
+            if (uda.password !== "") {
                 fields.push('password = $' + (fields.length + 1));
-                values.push(user.password);
+                values.push(uda.password);
             }
-            if (user.phone_number !== "") {
+            if (uda.phone_number !== "") {
                 fields.push('phone_number = $' + (fields.length + 1));
-                values.push(user.phone_number);
+                values.push(uda.phone_number);
             }
             
-            values.push(user.id);
+            values.push(uda.id);
     
             const query = `
                 UPDATE users 
@@ -120,7 +203,7 @@ export class PostgresUserRepository implements IUserRepository {
                 WHERE id = $${values.length} 
                 RETURNING *`;
     
-            const result = await client.query<User>(query, values);
+            const result = await client.query<UserDA>(query, values);
     
             client.release();
     
@@ -129,7 +212,7 @@ export class PostgresUserRepository implements IUserRepository {
             }
     
             const toParse = result.rows[0];
-            const userUpdated = new User(
+            const userUpdated = new UserDA(
                 toParse.id, 
                 toParse.name,
                 toParse.email,
@@ -137,7 +220,7 @@ export class PostgresUserRepository implements IUserRepository {
                 toParse.phone_number,
                 toParse.role
             );
-            return userUpdated;
+            return userUpdated.toService();
         } catch (error: any) {
             return null;
         }
@@ -159,18 +242,26 @@ export class PostgresUserRepository implements IUserRepository {
 
             client.release();
 
-            const user = result.rows[0];
+            const toParse = result.rows[0];
 
-            if (!user) {
+            const userAuth = new UserDA(
+                toParse.id, 
+                toParse.name,
+                toParse.email,
+                toParse.password,
+                toParse.phone_number,
+                toParse.role
+            );
+
+            if (!userAuth) {
                 throw new Error('Пользователь не найден');
             }
 
-            // Дополнительная проверка пароля
-            if (user.password !== password) {
+            if (userAuth.password !== password) {
                 throw new Error('Неверный пароль');
             }
 
-            return user;
+            return userAuth.toService();
         } catch (error: any) {
             console.error('Ошибка аутентификации:', error.message);
             return null;
@@ -179,7 +270,6 @@ export class PostgresUserRepository implements IUserRepository {
 
     async getByEmail(email: string): Promise<User | null> {
         try {
-            // Валидация входных данных
             if (!email) {
                 throw new Error('Email не указан');
             }
@@ -198,7 +288,7 @@ export class PostgresUserRepository implements IUserRepository {
             }
 
             let toParse = result.rows[0];
-            let userGetted = new User(
+            let userGetted = new UserDA(
                 toParse.id, 
                 toParse.name,
                 toParse.email,
@@ -206,7 +296,7 @@ export class PostgresUserRepository implements IUserRepository {
                 toParse.phone_number,
                 toParse.role
             )
-            return userGetted;
+            return userGetted.toService();
         } catch (error: any) {
             console.error('Ошибка при поиске пользователя по email:', error.message);
             return null;
@@ -234,7 +324,7 @@ export class PostgresUserRepository implements IUserRepository {
             }
 
             let toParse = result.rows[0];
-            let userGetted = new User(
+            let userGetted = new UserDA(
                 toParse.id, 
                 toParse.name,
                 toParse.email,
@@ -242,7 +332,7 @@ export class PostgresUserRepository implements IUserRepository {
                 toParse.phone_number,
                 toParse.role
             )
-            return userGetted;
+            return userGetted.toService();
         } catch (error: any) {
             console.error('Ошибка при поиске пользователя по ID:', error.message);
             return null;

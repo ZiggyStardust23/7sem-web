@@ -20,7 +20,7 @@ export class BasketController {
 
         try {
             const basket = await this.basketService.create(userId);
-            res.status(201).json(basket);
+            res.status(201).json(basket.toDTO());
         } catch (e: any) {
             res.status(500).json({ error: e.message });
         }
@@ -47,7 +47,7 @@ export class BasketController {
 
         try {
             const result = await this.basketService.removeProductsFromBasket(id, positions);
-            res.status(200).json(result);
+            res.status(200).json(result.toDTO());
         } catch (e: any) {
             if (e instanceof NotFoundError) {
                 res.status(e.statusCode).json({ error: e.message });
@@ -91,7 +91,7 @@ export class BasketController {
 
         try {
             const basket = await this.basketService.addProductsToBasket(id, basketPositions);
-            res.status(200).json(basket);
+            res.status(200).json(basket.toDTO());
         } catch (e: any) {
             if (e instanceof NotFoundError) {
                 res.status(e.statusCode).json({ error: e.message });

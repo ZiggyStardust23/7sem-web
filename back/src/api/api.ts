@@ -77,7 +77,7 @@ app.get('/api/phones/:id/comments', async (req: Request, res: Response) => {
     phoneContoller.getPhoneComments(req, res);
 });
 
-app.post('/api/phones', async (req: Request, res: Response) => {
+app.get('/api/phones', async (req: Request, res: Response) => {
     phoneContoller.getPhones(req, res);
 });
 

@@ -13,6 +13,155 @@ export interface IOrderRepository {
     delete(order: Order): Promise<boolean>;
 }
 
+class OrderDA {
+    private _id: string;
+    public get id(): string {
+        return this._id;
+    }
+    public set id(value: string) {
+        this._id = value;
+    }
+    private _userid: string;
+    public get userid(): string {
+        return this._userid;
+    }
+    public set userid(value: string) {
+        this._userid = value;
+    }
+    private _status: OrderStatus;
+    public get status(): OrderStatus {
+        return this._status;
+    }
+    public set status(value: OrderStatus) {
+        this._status = value;
+    }
+    private _address: string;
+    public get address(): string {
+        return this._address;
+    }
+    public set address(value: string) {
+        this._address = value;
+    }
+    private _date: Date;
+    public get date(): Date {
+        return this._date;
+    }
+    public set date(value: Date) {
+        this._date = value;
+    }
+    private _positions: OrderDAPosition[];
+    public get positions(): OrderDAPosition[] {
+        return this._positions;
+    }
+    public set positions(value: OrderDAPosition[]) {
+        this._positions = value;
+    }
+    constructor (
+        id: string, 
+        userid: string,
+        status: OrderStatus,
+        adress: string,
+        date: Date,
+        positions: OrderDAPosition[]
+    ){
+        this._id = id;
+        this._userid = userid;
+        this._status = status;
+        this._address = adress;
+        this._date = date;
+        this._positions = positions;
+    }
+
+    public static fromServce(order: Order): OrderDA{
+        const orderDAPositions: OrderDAPosition[] = []
+        for (let i = 0; i < order.positions.length; i++){
+            var pos = OrderDAPosition.fromService(order.positions[i]);
+            orderDAPositions.push(pos);
+        }
+        return new OrderDA(
+            order.id,
+            order.userid,
+            order.status,
+            order.address,
+            order.date,
+            orderDAPositions
+        )
+    }
+
+    public toService(): Order{
+        const orderPositions: OrderPosition[] = [];
+        for (let i = 0; i < this.positions.length; i++){
+            var pos = this.positions[i].toService();
+            orderPositions.push(pos);
+        }
+        return new Order(
+            this.id,
+            this.userid,
+            this.status,
+            this.address,
+            this.date,
+            orderPositions,
+        )
+    }
+}
+
+class OrderDAPosition {
+    private _id: string;
+    public get id(): string {
+        return this._id;
+    }
+    public set id(value: string) {
+        this._id = value;
+    }
+    private _orderId: string;
+    public get orderId(): string {
+        return this._orderId;
+    }
+    public set orderId(value: string) {
+        this._orderId = value;
+    }
+    private _productId: string;
+    public get productId(): string {
+        return this._productId;
+    }
+    public set productId(value: string) {
+        this._productId = value;
+    }
+    private _productsAmount: number;
+    public get productsAmount(): number {
+        return this._productsAmount;
+    }
+    public set productsAmount(value: number) {
+        this._productsAmount = value;
+    }
+
+	constructor(id: string, orderId: string, productId: string, productsAmount: number) {
+        this._id = id;
+        this._orderId = orderId;
+        this._productId = productId;
+        this._productsAmount = productsAmount;
+	}
+
+    public static fromService(pos: OrderPosition): OrderDAPosition{
+        return new OrderDAPosition(
+            pos.id,
+            pos.orderId,
+            pos.productId,
+            pos.productsAmount
+        )
+    }
+
+    public toService(): OrderPosition{
+        return new OrderPosition(
+            this.id,
+            this.orderId,
+            this.productId,
+            this.productsAmount,    
+        )
+    }
+    
+}
+
 export class PostgresOrderRepository implements IOrderRepository {
     private pool: Pool;
 
@@ -88,27 +237,28 @@ export class PostgresOrderRepository implements IOrderRepository {
         
         try {
             await client.query('BEGIN');
-
+            
+            const oda = OrderDA.fromServce(order);
             const orderResult = await client.query(
                 `INSERT INTO orders (userid, status, address, date) VALUES ($1, $2, $3, $4) RETURNING *`,
-                [order.userid, order.status, order.address, order.date]
+                [oda.userid, oda.status, oda.address, oda.date]
             );
             const orderId = orderResult.rows[0].id;
 
-            for (const position of order.positions) {
+            for (const position of oda.positions) {
                 const positionResult = await client.query(
                     `INSERT INTO positions (orderid, productid, products_amount) VALUES ($1, $2, $3) RETURNING id`,
                     [orderId, position.productId, position.productsAmount]
                 );
-                position.id = positionResult.rows[0].id; // Обновляем id позиции
-                position.orderId = orderId; // Обновляем orderId для позиции
+                position.id = positionResult.rows[0].id;
+                position.orderId = orderId;
             }
     
             await client.query('COMMIT');
     
-            order.id = orderId; // Добавляем id созданного заказа в объект заказа
+            oda.id = orderId;
     
-            return order;
+            return oda.toService();
         } catch (error: any) {
             await client.query('ROLLBACK');
             console.error('Ошибка при создании заказа:', error.message);
@@ -127,21 +277,21 @@ export class PostgresOrderRepository implements IOrderRepository {
 
             const orderData = result.rows[0];
             const positionResult = await client.query(`SELECT * FROM positions WHERE orderid = $1`, [orderId]);
-            const positions: OrderPosition[] = positionResult.rows.map(row => (new OrderPosition(
+            const positions: OrderDAPosition[] = positionResult.rows.map(row => (new OrderDAPosition(
                 row.id,
                 row.orderid,
                 row.productid,
                 row.products_amount
             )));
 
-            return new Order(
+            return new OrderDA(
                 orderData.id,
                 orderData.userid,
                 orderData.status as OrderStatus,
                 orderData.address,
                 orderData.date,
                 positions
-            );
+            ).toService();
         } catch (error: any) {
             console.error('Ошибка при получении заказа по ID:', error.message);
             throw error;
@@ -157,17 +307,17 @@ export class PostgresOrderRepository implements IOrderRepository {
             const result = await client.query(`SELECT * FROM orders WHERE userid = $1`, [userid]);
             if (result.rows.length === 0) return [];
 
-            const orders: Order[] = [];
+            const orders: OrderDA[] = [];
             for (const orderData of result.rows) {
                 const positionResult = await client.query(`SELECT * FROM positions WHERE orderid = $1`, [orderData.id]);
-                const positions: OrderPosition[] = positionResult.rows.map(row => (new OrderPosition(
+                const positions: OrderDAPosition[] = positionResult.rows.map(row => (new OrderDAPosition(
                     row.id,
                     row.orderid,
                     row.productid,
                     row.products_amount
                 )));
 
-                orders.push(new Order(
+                orders.push(new OrderDA(
                     orderData.id,
                     orderData.userid,
                     orderData.status as OrderStatus,
@@ -177,8 +327,11 @@ export class PostgresOrderRepository implements IOrderRepository {
                 ));
             }
 
-            console.log("HERE", orders)
-            return orders;
+            const serviceOrders: Order[] = [];
+            for (let o of orders){
+                serviceOrders.push(o.toService())
+            }
+            return serviceOrders;
         } catch (error: any) {
             console.error('Ошибка при получении заказов пользователя:', error.message);
             throw error;
@@ -192,26 +345,26 @@ export class PostgresOrderRepository implements IOrderRepository {
         
         try {
             await client.query('BEGIN');
-    
+            
+            const oda = OrderDA.fromServce(order);
             await client.query(
                 `UPDATE orders SET userid = $1, status = $2, address = $3, date = $4 WHERE id = $5`,
-                [order.userid, order.status, order.address, order.date, order.id]
+                [oda.userid, oda.status, oda.address, oda.date, oda.id]
             );
     
-            await client.query(`DELETE FROM positions WHERE orderid = $1`, [order.id]);
+            await client.query(`DELETE FROM positions WHERE orderid = $1`, [oda.id]);
     
-            const positionPromises = order.positions.map(position =>
+            const positionPromises = oda.positions.map(position =>
                 client.query(
                     `INSERT INTO positions (orderid, productid, products_amount) VALUES ($1, $2, $3) RETURNING *`,
-                    [order.id, position.productId, position.productsAmount]
+                    [oda.id, position.productId, position.productsAmount]
                 )
             );
             const positionResults = await Promise.all(positionPromises);
-            // Сохраняем идентификаторы новых позиций в массиве позиций заказа
-            order.positions = positionResults.map(result => new OrderPosition(result.rows[0].id, order.id, result.rows[0].productid, result.rows[0].products_amount));
+            oda.positions = positionResults.map(result => new OrderDAPosition(result.rows[0].id, order.id, result.rows[0].productid, result.rows[0].products_amount));
             await client.query('COMMIT');
     
-            return order;
+            return oda.toService();
         } catch (error: any) {
             await client.query('ROLLBACK');
             console.error('Ошибка при обновлении заказа:', error.message);
@@ -225,8 +378,9 @@ export class PostgresOrderRepository implements IOrderRepository {
         const client = await this.pool.connect();
         
         try {    
-            await client.query(`DELETE FROM positions WHERE orderid = $1`, [order.id]);
-            await client.query(`DELETE FROM orders WHERE id = $1`, [order.id]);
+            const oda = OrderDA.fromServce(order);
+            await client.query(`DELETE FROM positions WHERE orderid = $1`, [oda.id]);
+            await client.query(`DELETE FROM orders WHERE id = $1`, [oda.id]);
     
             return true;
         } catch (error: any) {
@@ -239,13 +393,14 @@ export class PostgresOrderRepository implements IOrderRepository {
 
     async updateStatus(order: Order): Promise<Order> {
         const client = await this.pool.connect();
+        const oda = OrderDA.fromServce(order);
 
         await client.query(
             `UPDATE orders SET status = $1 WHERE id = $2`,
-            [order.status, order.id]
+            [oda.status, oda.id]
         );
 
-        return order;
+        return oda.toService();
         client.release();
     }
     

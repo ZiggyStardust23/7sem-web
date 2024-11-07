@@ -11,6 +11,63 @@ export interface IPaymentRepository {
     delete(id: string): Promise<boolean>;
 }
 
+class PaymentDA {
+    private _id: string;
+    private _orderId: string;
+    private _status: boolean;
+    private _sum: number;
+    
+    constructor (id: string, orderId: string, status: boolean, sum: number){
+        this._id = id;
+        this._orderId = orderId;
+        this._status = status;
+        this._sum = sum;
+    }
+
+    get id(): string {
+        return this._id;
+    }
+    set id(id: string) {
+        this._id = id;
+    }
+    get orderId(): string {
+        return this._orderId;
+    }
+    set orderId(orderId: string) {
+        this._orderId = orderId;
+    }
+    get status(): boolean {
+        return this._status;
+    }
+    set status(status: boolean) {
+        this._status = status;
+    }
+    get sum(): number {
+        return this._sum;
+    }
+    set sum(sum: number) {
+        this._sum = sum;
+    }
+
+    public static fromService(payment: Payment): PaymentDA{
+        return new PaymentDA(
+            payment.id,
+            payment.orderId,
+            payment.status,
+            payment.sum
+        )
+    }
+
+    public toService(): Payment{
+        return new Payment(
+            this.id,
+            this.orderId,
+            this.status,
+            this.sum
+        )
+    }
+}
+
 export class PostgresPaymentRepository implements IPaymentRepository {
     private pool: Pool;
 
@@ -63,10 +120,10 @@ export class PostgresPaymentRepository implements IPaymentRepository {
         
         try {
             await client.query('BEGIN');
-    
+            const pda = PaymentDA.fromService(payment);
             const order = await client.query(
                 `SELECT * FROM orders WHERE id = $1`,
-                [payment.orderId]
+                [pda.orderId]
             );
 
             if(order.rows.length == 0){
@@ -75,7 +132,7 @@ export class PostgresPaymentRepository implements IPaymentRepository {
 
             const positionResult = await client.query(
                 `SELECT * FROM positions WHERE orderid = $1`,
-                [payment.orderId]
+                [pda.orderId]
             );
     
             const result = await client.query(
@@ -83,12 +140,12 @@ export class PostgresPaymentRepository implements IPaymentRepository {
                  FROM positions 
                  INNER JOIN phones ON positions.productid = phones.id 
                  WHERE orderid = $1`,
-                [payment.orderId]
+                [pda.orderId]
             );
     
             const paymentResult = await client.query(
                 `INSERT INTO payments (orderid, status, sum) VALUES ($1, $2, $3) RETURNING *`,
-                [payment.orderId, payment.status, parseInt(result.rows[0].total_price) || 0]
+                [pda.orderId, pda.status, parseInt(result.rows[0].total_price) || 0]
             );
     
             const createdPayment = paymentResult.rows[0];
@@ -97,7 +154,7 @@ export class PostgresPaymentRepository implements IPaymentRepository {
     
             await client.query('COMMIT');
     
-            return new Payment(createdPaymentId, payment.orderId, payment.status, createdPaymentSum);
+            return new PaymentDA(createdPaymentId, payment.orderId, payment.status, createdPaymentSum).toService();
         } catch (error: any) {
             await client.query('ROLLBACK');
             console.error('Ошибка при создании платежа:', error.message);
@@ -115,12 +172,12 @@ export class PostgresPaymentRepository implements IPaymentRepository {
             if (result.rows.length === 0) return null;
 
             const paymentData = result.rows[0];
-            return new Payment(
+            return new PaymentDA(
                 paymentData.id,
                 paymentData.orderid,
                 paymentData.status,
                 paymentData.sum
-            );
+            ).toService();
         } catch (error: any) {
             console.error('Ошибка при получении платежа по ID:', error.message);
             throw error;
@@ -137,12 +194,12 @@ export class PostgresPaymentRepository implements IPaymentRepository {
             if (result.rows.length === 0) return null;
 
             const paymentData = result.rows[0];
-            return new Payment(
+            return new PaymentDA(
                 paymentData.id,
                 paymentData.orderid,
                 paymentData.status,
                 paymentData.sum
-            );
+            ).toService();
         } catch (error: any) {
             console.error('Ошибка при получении платежа по ID заказа:', error.message);
             throw error;
@@ -166,12 +223,12 @@ export class PostgresPaymentRepository implements IPaymentRepository {
 
             await client.query('COMMIT');
 
-            return new Payment(
+            return new PaymentDA(
                 result.rows[0].id,
                 result.rows[0].orderId,
                 result.rows[0].status,
                 result.rows[0].sum 
-            );
+            ).toService();
         } catch (error: any) {
             await client.query('ROLLBACK');
             console.error('Ошибка при обновлении платежа:', error.message);

@@ -25,7 +25,7 @@ export class OrderController {
 
         try {
             const order = await this.orderService.updateOrderStatus({ id, status });
-            res.status(200).json(order);
+            res.status(200).json(order.toDTO());
         } catch (e: any) {
             if (e instanceof NotFoundError) {
                 res.status(e.statusCode).json({ error: e.message });
@@ -78,7 +78,7 @@ export class OrderController {
 
         try {
             const result = await this.orderService.create(new Order("", userid, OrderStatus.PLACED, address, new Date(), orderPositions));
-            res.status(201).json(result);
+            res.status(201).json(result.toDTO());
         } catch (e: any) {
             res.status(500).json({ error: e.message });
         }
@@ -89,7 +89,7 @@ export class OrderController {
 
         try {
             const order = await this.orderService.findById(orderId);
-            res.status(200).json(order);
+            res.status(200).json(order.toDTO());
         } catch (e: any) {
             if (e instanceof NotFoundError) {
                 res.status(e.statusCode).json({ error: e.message });
@@ -104,7 +104,7 @@ export class OrderController {
 
         try {
             const payment = await this.paymentService.findByOrderId(orderId);
-            res.status(200).json(payment);
+            res.status(200).json(payment.toDTO());
         } catch (e: any) {
             if (e instanceof NotFoundError) {
                 res.status(e.statusCode).json({ error: e.message });
